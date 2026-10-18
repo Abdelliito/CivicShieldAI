@@ -1,0 +1,13 @@
+.env
+.venv/
+.runtime/
+node_modules/
+frontend/dist/
+__pycache__/
+.pytest_cache/
+backend/uploads/
+test-results/
+playwright-report/
+*.log
+*.zip
+*.tsbuildinfo

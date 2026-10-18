@@ -1,0 +1,347 @@
+{
+  "label": "Verified synthetic heavy-rain demonstration, not observed weather",
+  "assessments": [
+    {
+      "id": 381,
+      "zone_id": 1,
+      "score": 87.6,
+      "level": "High",
+      "factors": {
+        "inputs": {
+          "forecast_rain_mm": 96.0,
+          "recent_rain_mm": 44.0,
+          "unresolved_blocked_drains": 3,
+          "unresolved_water_incidents": 0,
+          "historical_floods": 7
+        },
+        "contributions": {
+          "forecast": 42.0,
+          "recent_rain": 18.0,
+          "blocked_drains": 22.0,
+          "water_incidents": 0.0,
+          "history": 5.6
+        },
+        "missing": [],
+        "explanation": "Weighted score 87.6/100 from rainfall, unresolved flood-related hazards, and available history.",
+        "weights": {
+          "forecast": 0.42,
+          "recent_rain": 0.18,
+          "blocked_drains": 0.22,
+          "water_incidents": 0.1,
+          "history": 0.08,
+          "forecast_saturation_mm": 60,
+          "recent_saturation_mm": 40,
+          "drain_saturation_count": 3,
+          "water_saturation_count": 3,
+          "history_saturation_count": 10,
+          "moderate_threshold": 35,
+          "high_threshold": 65
+        },
+        "partial_evidence_score": null,
+        "limitations": [
+          "Heuristic estimate, not a calibrated flood probability or official warning.",
+          "Zone circles are planning approximations; drainage capacity, terrain and hydrology are not modeled."
+        ]
+      },
+      "provenance": {
+        "model": "civicshield-weighted-v1",
+        "calculated_at": "2026-10-16T17:11:17.955189+00:00",
+        "units": "rainfall mm; normalized risk score 0\u2013100",
+        "zone_id": 1,
+        "zone_name": "Gulberg",
+        "zone_geometry": {
+          "name": "Gulberg",
+          "latitude": 31.5114,
+          "longitude": 74.3506,
+          "radius_km": 2.3
+        },
+        "weather": {
+          "snapshot_id": 41,
+          "source": "SYNTHETIC DEMONSTRATION: heavy_rain",
+          "created_at": "2026-10-16T17:11:17.951847+00:00",
+          "synthetic": true,
+          "is_demo": true,
+          "stale": false,
+          "error": null,
+          "details": {
+            "synthetic": true,
+            "scenario": "heavy_rain",
+            "description": "Injected demonstration scenario; not observed weather or an actual forecast.",
+            "forecast_window_hours": 24,
+            "recent_window_hours": 24
+          }
+        },
+        "incident_ids": [
+          1,
+          2,
+          11
+        ],
+        "history": {
+          "source": "Synthetic demonstration / administrator-entered count",
+          "synthetic": true,
+          "count": 7
+        },
+        "trigger": "synthetic:heavy_rain"
+      },
+      "created_at": "2026-10-16T17:11:17.956562+00:00",
+      "zone_name": "Gulberg",
+      "latitude": 31.5114,
+      "longitude": 74.3506,
+      "radius_km": 2.3
+    },
+    {
+      "id": 382,
+      "zone_id": 2,
+      "score": 64.0,
+      "level": "Moderate",
+      "factors": {
+        "inputs": {
+          "forecast_rain_mm": 96.0,
+          "recent_rain_mm": 44.0,
+          "unresolved_blocked_drains": 0,
+          "unresolved_water_incidents": 0,
+          "historical_floods": 5
+        },
+        "contributions": {
+          "forecast": 42.0,
+          "recent_rain": 18.0,
+          "blocked_drains": 0.0,
+          "water_incidents": 0.0,
+          "history": 4.0
+        },
+        "missing": [],
+        "explanation": "Weighted score 64.0/100 from rainfall, unresolved flood-related hazards, and available history.",
+        "weights": {
+          "forecast": 0.42,
+          "recent_rain": 0.18,
+          "blocked_drains": 0.22,
+          "water_incidents": 0.1,
+          "history": 0.08,
+          "forecast_saturation_mm": 60,
+          "recent_saturation_mm": 40,
+          "drain_saturation_count": 3,
+          "water_saturation_count": 3,
+          "history_saturation_count": 10,
+          "moderate_threshold": 35,
+          "high_threshold": 65
+        },
+        "partial_evidence_score": null,
+        "limitations": [
+          "Heuristic estimate, not a calibrated flood probability or official warning.",
+          "Zone circles are planning approximations; drainage capacity, terrain and hydrology are not modeled."
+        ]
+      },
+      "provenance": {
+        "model": "civicshield-weighted-v1",
+        "calculated_at": "2026-10-16T17:11:17.958865+00:00",
+        "units": "rainfall mm; normalized risk score 0\u2013100",
+        "zone_id": 2,
+        "zone_name": "Jail Road",
+        "zone_geometry": {
+          "name": "Jail Road",
+          "latitude": 31.535,
+          "longitude": 74.331,
+          "radius_km": 1.5
+        },
+        "weather": {
+          "snapshot_id": 42,
+          "source": "SYNTHETIC DEMONSTRATION: heavy_rain",
+          "created_at": "2026-10-16T17:11:17.951847+00:00",
+          "synthetic": true,
+          "is_demo": true,
+          "stale": false,
+          "error": null,
+          "details": {
+            "synthetic": true,
+            "scenario": "heavy_rain",
+            "description": "Injected demonstration scenario; not observed weather or an actual forecast.",
+            "forecast_window_hours": 24,
+            "recent_window_hours": 24
+          }
+        },
+        "incident_ids": [],
+        "history": {
+          "source": "Synthetic demonstration / administrator-entered count",
+          "synthetic": true,
+          "count": 5
+        },
+        "trigger": "synthetic:heavy_rain"
+      },
+      "created_at": "2026-10-16T17:11:17.959870+00:00",
+      "zone_name": "Jail Road",
+      "latitude": 31.535,
+      "longitude": 74.331,
+      "radius_km": 1.5
+    },
+    {
+      "id": 383,
+      "zone_id": 3,
+      "score": 64.9,
+      "level": "Moderate",
+      "factors": {
+        "inputs": {
+          "forecast_rain_mm": 96.0,
+          "recent_rain_mm": 44.0,
+          "unresolved_blocked_drains": 0,
+          "unresolved_water_incidents": 1,
+          "historical_floods": 2
+        },
+        "contributions": {
+          "forecast": 42.0,
+          "recent_rain": 18.0,
+          "blocked_drains": 0.0,
+          "water_incidents": 3.33,
+          "history": 1.6
+        },
+        "missing": [],
+        "explanation": "Weighted score 64.9/100 from rainfall, unresolved flood-related hazards, and available history.",
+        "weights": {
+          "forecast": 0.42,
+          "recent_rain": 0.18,
+          "blocked_drains": 0.22,
+          "water_incidents": 0.1,
+          "history": 0.08,
+          "forecast_saturation_mm": 60,
+          "recent_saturation_mm": 40,
+          "drain_saturation_count": 3,
+          "water_saturation_count": 3,
+          "history_saturation_count": 10,
+          "moderate_threshold": 35,
+          "high_threshold": 65
+        },
+        "partial_evidence_score": null,
+        "limitations": [
+          "Heuristic estimate, not a calibrated flood probability or official warning.",
+          "Zone circles are planning approximations; drainage capacity, terrain and hydrology are not modeled."
+        ]
+      },
+      "provenance": {
+        "model": "civicshield-weighted-v1",
+        "calculated_at": "2026-10-16T17:11:17.962714+00:00",
+        "units": "rainfall mm; normalized risk score 0\u2013100",
+        "zone_id": 3,
+        "zone_name": "Model Town",
+        "zone_geometry": {
+          "name": "Model Town",
+          "latitude": 31.4815,
+          "longitude": 74.3239,
+          "radius_km": 2.2
+        },
+        "weather": {
+          "snapshot_id": 43,
+          "source": "SYNTHETIC DEMONSTRATION: heavy_rain",
+          "created_at": "2026-10-16T17:11:17.951847+00:00",
+          "synthetic": true,
+          "is_demo": true,
+          "stale": false,
+          "error": null,
+          "details": {
+            "synthetic": true,
+            "scenario": "heavy_rain",
+            "description": "Injected demonstration scenario; not observed weather or an actual forecast.",
+            "forecast_window_hours": 24,
+            "recent_window_hours": 24
+          }
+        },
+        "incident_ids": [
+          5
+        ],
+        "history": {
+          "source": "Synthetic demonstration / administrator-entered count",
+          "synthetic": true,
+          "count": 2
+        },
+        "trigger": "synthetic:heavy_rain"
+      },
+      "created_at": "2026-10-16T17:11:17.962714+00:00",
+      "zone_name": "Model Town",
+      "latitude": 31.4815,
+      "longitude": 74.3239,
+      "radius_km": 2.2
+    },
+    {
+      "id": 384,
+      "zone_id": 4,
+      "score": 63.2,
+      "level": "Moderate",
+      "factors": {
+        "inputs": {
+          "forecast_rain_mm": 96.0,
+          "recent_rain_mm": 44.0,
+          "unresolved_blocked_drains": 0,
+          "unresolved_water_incidents": 0,
+          "historical_floods": 4
+        },
+        "contributions": {
+          "forecast": 42.0,
+          "recent_rain": 18.0,
+          "blocked_drains": 0.0,
+          "water_incidents": 0.0,
+          "history": 3.2
+        },
+        "missing": [],
+        "explanation": "Weighted score 63.2/100 from rainfall, unresolved flood-related hazards, and available history.",
+        "weights": {
+          "forecast": 0.42,
+          "recent_rain": 0.18,
+          "blocked_drains": 0.22,
+          "water_incidents": 0.1,
+          "history": 0.08,
+          "forecast_saturation_mm": 60,
+          "recent_saturation_mm": 40,
+          "drain_saturation_count": 3,
+          "water_saturation_count": 3,
+          "history_saturation_count": 10,
+          "moderate_threshold": 35,
+          "high_threshold": 65
+        },
+        "partial_evidence_score": null,
+        "limitations": [
+          "Heuristic estimate, not a calibrated flood probability or official warning.",
+          "Zone circles are planning approximations; drainage capacity, terrain and hydrology are not modeled."
+        ]
+      },
+      "provenance": {
+        "model": "civicshield-weighted-v1",
+        "calculated_at": "2026-10-16T17:11:17.962714+00:00",
+        "units": "rainfall mm; normalized risk score 0\u2013100",
+        "zone_id": 4,
+        "zone_name": "Johar Town",
+        "zone_geometry": {
+          "name": "Johar Town",
+          "latitude": 31.4697,
+          "longitude": 74.2728,
+          "radius_km": 2.5
+        },
+        "weather": {
+          "snapshot_id": 44,
+          "source": "SYNTHETIC DEMONSTRATION: heavy_rain",
+          "created_at": "2026-10-16T17:11:17.951847+00:00",
+          "synthetic": true,
+          "is_demo": true,
+          "stale": false,
+          "error": null,
+          "details": {
+            "synthetic": true,
+            "scenario": "heavy_rain",
+            "description": "Injected demonstration scenario; not observed weather or an actual forecast.",
+            "forecast_window_hours": 24,
+            "recent_window_hours": 24
+          }
+        },
+        "incident_ids": [],
+        "history": {
+          "source": "Synthetic demonstration / administrator-entered count",
+          "synthetic": true,
+          "count": 4
+        },
+        "trigger": "synthetic:heavy_rain"
+      },
+      "created_at": "2026-10-16T17:11:17.962714+00:00",
+      "zone_name": "Johar Town",
+      "latitude": 31.4697,
+      "longitude": 74.2728,
+      "radius_km": 2.5
+    }
+  ]
+}

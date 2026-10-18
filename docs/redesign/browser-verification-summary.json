@@ -1,0 +1,233 @@
+{
+  "date": "2026-10-17",
+  "unique_checks": 32,
+  "passed": 32,
+  "unresolved": [],
+  "note": "Latest actual result per unique test across the combined run and focused reruns. Initial failures and artifact collision were corrected; no test was skipped.",
+  "checks": [
+    {
+      "file": "redesign.spec.ts",
+      "title": "390px citizen reporting keeps photo and numeric location controls usable and closes by keyboard",
+      "status": "passed",
+      "duration_ms": 10091,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "Focus Lahore restores the operational view after an actual map zoom",
+      "status": "passed",
+      "duration_ms": 6902,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "admin workspace is healthy at 1280px",
+      "status": "passed",
+      "duration_ms": 20530,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "admin workspace is healthy at 1440px",
+      "status": "passed",
+      "duration_ms": 14231,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "admin workspace is healthy at 390px",
+      "status": "passed",
+      "duration_ms": 35068,
+      "evidence_run": "final-retry-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "admin workspace is healthy at 768px",
+      "status": "passed",
+      "duration_ms": 19394,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "authority workspace is healthy at 1280px",
+      "status": "passed",
+      "duration_ms": 14942,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "authority workspace is healthy at 1440px",
+      "status": "passed",
+      "duration_ms": 18742,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "authority workspace is healthy at 390px",
+      "status": "passed",
+      "duration_ms": 39045,
+      "evidence_run": "final-retry-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "authority workspace is healthy at 768px",
+      "status": "passed",
+      "duration_ms": 14432,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "citizen workspace is healthy at 1280px",
+      "status": "passed",
+      "duration_ms": 6443,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "citizen workspace is healthy at 1440px",
+      "status": "passed",
+      "duration_ms": 5647,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "citizen workspace is healthy at 390px",
+      "status": "passed",
+      "duration_ms": 14099,
+      "evidence_run": "final-retry-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "citizen workspace is healthy at 768px",
+      "status": "passed",
+      "duration_ms": 4947,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "keyboard incident selection connects its marker to context and the existing detail workflow",
+      "status": "passed",
+      "duration_ms": 6841,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "keyboard risk-zone inspection opens calculated factors and preserved history",
+      "status": "passed",
+      "duration_ms": 7989,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "operational map layers reflect real incidents and risk estimates and can be toggled independently",
+      "status": "passed",
+      "duration_ms": 7091,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "worker workspace is healthy at 1280px",
+      "status": "passed",
+      "duration_ms": 5211,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "worker workspace is healthy at 1440px",
+      "status": "passed",
+      "duration_ms": 7350,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "worker workspace is healthy at 390px",
+      "status": "passed",
+      "duration_ms": 11022,
+      "evidence_run": "final-retry-results.json"
+    },
+    {
+      "file": "redesign.spec.ts",
+      "title": "worker workspace is healthy at 768px",
+      "status": "passed",
+      "duration_ms": 5303,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "admin department CRUD persists and availability can be restored",
+      "status": "passed",
+      "duration_ms": 17731,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "admin team CRUD persists and availability can be restored",
+      "status": "passed",
+      "duration_ms": 32336,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "admin user CRUD persists and availability can be restored",
+      "status": "passed",
+      "duration_ms": 26063,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "admin zone CRUD persists and availability can be restored",
+      "status": "passed",
+      "duration_ms": 33261,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "citizen withdrawal is reversible and report photos/location survive reload",
+      "status": "passed",
+      "duration_ms": 20433,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "citizen \u2192 authority \u2192 worker evidence \u2192 authority verification \u2192 citizen notification",
+      "status": "passed",
+      "duration_ms": 98814,
+      "evidence_run": "final-workflow-first.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "desktop/mobile render and API failures produce visible feedback",
+      "status": "passed",
+      "duration_ms": 29201,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "duplicate review, classification, notes, reassignment and archive controls persist",
+      "status": "passed",
+      "duration_ms": 41193,
+      "evidence_run": "final-retry-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "incident category, severity, location and date filters use persisted data",
+      "status": "passed",
+      "duration_ms": 12747,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "registration, login errors, expired sessions and notification read state",
+      "status": "passed",
+      "duration_ms": 16339,
+      "evidence_run": "final-browser-results.json"
+    },
+    {
+      "file": "workflow.spec.ts",
+      "title": "weather independently changes persisted risk, missing input is explicit, and agent reviews work",
+      "status": "passed",
+      "duration_ms": 52766,
+      "evidence_run": "final-retry-results.json"
+    }
+  ]
+}
