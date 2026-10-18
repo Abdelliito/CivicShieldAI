@@ -18,6 +18,11 @@ if not make_url(test_url).database.endswith('_test'):
 os.environ['DATABASE_URL'] = test_url
 os.environ['JWT_SECRET'] = 'pytest-only-signing-secret-is-at-least-32-characters'
 os.environ['DEMO_MODE'] = 'true'
+# Never let a developer's configured provider credentials trigger real paid
+# image requests during deterministic tests. Provider tests supply local mocks.
+for name in set(os.environ) | set(configuration):
+    if name.startswith(('VISION_', 'OPENAI_', 'GEMINI_', 'GOOGLE_API_', 'ANTHROPIC_', 'HF_', 'OLLAMA_', 'COMPATIBLE_')):
+        os.environ[name] = ''
 os.environ['OPENAI_API_KEY'] = ''
 
 

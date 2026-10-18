@@ -31,17 +31,36 @@ class Register(Login):
 
 
 class ReportCreate(StrictModel):
-    title: str = Field(min_length=5, max_length=180)
-    description: str = Field(min_length=15, max_length=5000)
+    title: str = Field(default='', max_length=180)
+    description: str = Field(default='', max_length=5000)
+    category: str | None = None
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     location_name: str = Field(default='', max_length=240)
     attachment_ids: list[int] = Field(default_factory=list, max_length=8)
 
+    @field_validator('category')
+    @classmethod
+    def category_valid(cls, value):
+        if value is not None and value not in CATEGORIES:
+            raise ValueError('Choose a supported hazard category.')
+        return value
+
+    @model_validator(mode='after')
+    def report_has_evidence(self):
+        if not self.attachment_ids and len((self.title + ' ' + self.description).strip()) < 15:
+            raise ValueError('Add a photograph or describe the issue in at least 15 characters.')
+        return self
+
+
+class UploadAnalysis(StrictModel):
+    title: str = Field(default='', max_length=180)
+    description: str = Field(default='', max_length=5000)
+
 
 class ReportFields(StrictModel):
-    title: str | None = Field(default=None, min_length=5, max_length=180)
-    description: str | None = Field(default=None, min_length=15, max_length=5000)
+    title: str | None = Field(default=None, max_length=180)
+    description: str | None = Field(default=None, max_length=5000)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     location_name: str | None = Field(default=None, max_length=240)
@@ -49,6 +68,14 @@ class ReportFields(StrictModel):
 
 class ReportEdit(ReportFields):
     attachment_ids: list[int] | None = Field(default=None, max_length=8)
+    category: str | None = None
+
+    @field_validator('category')
+    @classmethod
+    def category_valid(cls, value):
+        if value is not None and value not in CATEGORIES:
+            raise ValueError('Choose a supported hazard category.')
+        return value
 
 
 class IncidentEdit(ReportFields):
@@ -88,12 +115,22 @@ class NoteBody(StrictModel):
 
 
 class AssignmentCreate(StrictModel):
-    team_id: int
+    team_id: int | None = None
+    worker_id: int | None = None
+    sharing_scope: Literal['full_report', 'location_only'] = 'full_report'
     notes: str = Field(default='', max_length=3000)
+
+    @model_validator(mode='after')
+    def choose_recipient(self):
+        if self.team_id is None and self.worker_id is None:
+            raise ValueError('Choose a team or a worker.')
+        return self
 
 
 class AssignmentEdit(StrictModel):
     team_id: int | None = None
+    worker_id: int | None = None
+    sharing_scope: Literal['full_report', 'location_only'] | None = None
     status: Literal['Assigned', 'Acknowledged', 'In Progress', 'Submitted', 'Cancelled'] | None = None
     notes: str | None = Field(default=None, max_length=3000)
 

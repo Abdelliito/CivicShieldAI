@@ -2,7 +2,7 @@ import logging
 import math
 from datetime import datetime
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Session
@@ -60,9 +60,35 @@ def get_incident(db, incident_id, user):
         raise HTTPException(404, 'Incident not found.')
     if user.role == 'citizen' and incident.citizen_id != user.id:
         raise HTTPException(403, 'You can only access your own reports.')
-    if user.role == 'worker' and (not user.team_id or incident.team_id != user.team_id):
+    if user.role == 'worker' and not current_worker_assignment(db, incident, user):
         raise HTTPException(403, 'You can only access incidents assigned to your team.')
     return incident
+
+
+def current_worker_assignment(db, incident, user):
+    if user.role != 'worker' or not user.team_id or incident.team_id != user.team_id:
+        return None
+    latest = db.scalar(select(Assignment).where(Assignment.incident_id == incident.id, Assignment.status != 'Cancelled').order_by(Assignment.id.desc()).limit(1))
+    if not latest or latest.team_id != user.team_id or latest.worker_id not in {None, user.id}:
+        return None
+    return latest
+
+
+def location_only(db, incident, user):
+    assignment = current_worker_assignment(db, incident, user) if user and user.role == 'worker' else None
+    return bool(assignment and assignment.sharing_scope == 'location_only')
+
+
+def attachment_visible(db, attachment, incident, user):
+    return not location_only(db, incident, user) or (attachment.kind == 'completion' and attachment.user_id == user.id)
+
+
+def assignment_dump(db, assignment):
+    item = dump(assignment)
+    team = db.get(Team, assignment.team_id)
+    worker = db.get(User, assignment.worker_id) if assignment.worker_id else None
+    item.update(team_name=team.name if team else None, worker_name=worker.name if worker else None)
+    return item
 
 
 def visible_incidents(db, user):
@@ -70,12 +96,19 @@ def visible_incidents(db, user):
     if user.role == 'citizen':
         statement = statement.where(Incident.citizen_id == user.id)
     elif user.role == 'worker':
-        statement = statement.where(Incident.team_id == (user.team_id or -1))
+        latest = select(Assignment.incident_id, func.max(Assignment.id).label('id')).where(Assignment.status != 'Cancelled').group_by(Assignment.incident_id).subquery()
+        statement = statement.join(latest, latest.c.incident_id == Incident.id).join(Assignment, Assignment.id == latest.c.id).where(Incident.team_id == (user.team_id or -1), Assignment.team_id == user.team_id, or_(Assignment.worker_id.is_(None), Assignment.worker_id == user.id))
     return statement
 
 
 def incident_dump(db, incident, detail=False, viewer=None):
     result = dump(incident)
+    limited = location_only(db, incident, viewer)
+    worker_assignment = current_worker_assignment(db, incident, viewer) if viewer and viewer.role == 'worker' else None
+    result['sharing_scope'] = worker_assignment.sharing_scope if worker_assignment else 'full_report'
+    result['sharing_notice'] = 'The authority shared the location and work instructions only.' if limited else None
+    if limited:
+        result.update(title='Location-only task', description='', analysis={}, category='Other civic infrastructure hazards', severity='Medium', citizen_id=None, duplicate_of=None)
     department = db.get(Department, incident.department_id) if incident.department_id else None
     team = db.get(Team, incident.team_id) if incident.team_id else None
     zone = db.get(Zone, incident.zone_id) if incident.zone_id else None
@@ -88,31 +121,37 @@ def incident_dump(db, incident, detail=False, viewer=None):
         if not candidate_parent:
             break
         parent = candidate_parent
-    if parent.id != incident.id:
+    if parent.id != incident.id and not limited:
         result['consolidated_incident'] = {'id': parent.id, 'reference': parent.reference, 'status': parent.status}
     attachments = db.scalars(select(Attachment).where(Attachment.incident_id == incident.id, Attachment.deleted.is_(False)).order_by(Attachment.id)).all()
-    result['attachments'] = [dump(a) for a in attachments]
+    result['attachments'] = [dump(a) for a in attachments if not limited or (a.kind == 'completion' and a.user_id == viewer.id)]
     if detail:
         result['notes'] = []
         for note in db.scalars(select(Note).where(Note.incident_id == incident.id, Note.deleted.is_(False)).order_by(Note.created_at)):
+            if limited and note.user_id != viewer.id:
+                continue
             item = dump(note)
             author = db.get(User, note.user_id)
             item['author_name'] = author.name if author else 'System'
             result['notes'].append(item)
         result['history'] = []
         for entry in db.scalars(select(AuditLog).where(AuditLog.incident_id == incident.id).order_by(AuditLog.created_at.desc())):
+            if limited:
+                continue
             item = dump(entry)
             actor = db.get(User, entry.user_id) if entry.user_id else None
             item['actor_name'] = actor.name if actor else 'System'
             result['history'].append(item)
         result['assignments'] = []
         for assignment in db.scalars(select(Assignment).where(Assignment.incident_id == incident.id).order_by(Assignment.id.desc())):
-            item = dump(assignment)
-            team = db.get(Team, assignment.team_id)
-            item['team_name'] = team.name if team else None
+            if worker_assignment and assignment.id != worker_assignment.id:
+                continue
+            item = assignment_dump(db, assignment)
             result['assignments'].append(item)
         result['duplicates'] = []
         for candidate in db.scalars(select(DuplicateCandidate).where((DuplicateCandidate.incident_id == incident.id) | (DuplicateCandidate.target_id == incident.id)).order_by(DuplicateCandidate.id.desc())):
+            if limited:
+                continue
             item = dump(candidate)
             other_id = candidate.target_id if candidate.incident_id == incident.id else candidate.incident_id
             other = db.get(Incident, other_id)
@@ -121,7 +160,7 @@ def incident_dump(db, incident, detail=False, viewer=None):
             item['target_title'] = other.title if other and may_view_other else 'Related report — authority review'
             item['related_incident_id'] = other_id
             result['duplicates'].append(item)
-        result['recommendations'] = [dump(r) for r in db.scalars(select(Recommendation).where(Recommendation.incident_id == incident.id).order_by(Recommendation.id.desc()))]
+        result['recommendations'] = [] if limited else [dump(r) for r in db.scalars(select(Recommendation).where(Recommendation.incident_id == incident.id).order_by(Recommendation.id.desc()))]
     return result
 
 
@@ -137,11 +176,14 @@ def choose_zone(db, latitude, longitude):
     return min(eligible, key=lambda pair: pair[0])[1].id if eligible else None
 
 
-def process_incident(db, incident):
+def process_incident(db, incident, *, reuse_attachment_analysis=False):
     from .intelligence import run_pipeline
     incident_id = incident.id
     try:
-        run_pipeline(db, incident)
+        if reuse_attachment_analysis:
+            run_pipeline(db, incident, reuse_attachment_analysis=True)
+        else:
+            run_pipeline(db, incident)
         commit(db)
     except Exception as exc:
         logger.exception('Incident pipeline failed for %s', incident_id)

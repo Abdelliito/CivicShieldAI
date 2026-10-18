@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { api, date, json, upload, useAction, useApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import type { Entity, Incident, Assignment } from "../lib/types";
-import { CATEGORIES, SEVERITIES, STATUSES } from "../lib/types";
+import type { Entity, Incident, Assignment, Json } from "../lib/types";
+import { CATEGORIES, SEVERITIES, STATUSES, statusLabel } from "../lib/types";
 import {
   Badge,
   Button,
@@ -48,6 +48,8 @@ export function IncidentDetails({
     [note, setNote] = useState(""),
     [noteEdit, setNoteEdit] = useState<number | null>(null),
     [team, setTeam] = useState(""),
+    [worker, setWorker] = useState(""),
+    [sharing, setSharing] = useState<"full_report" | "location_only">("full_report"),
     [assignmentNotes, setAssignmentNotes] = useState(""),
     [status, setStatus] = useState(""),
     [reason, setReason] = useState(""),
@@ -56,6 +58,7 @@ export function IncidentDetails({
     [completionNotes, setCompletionNotes] = useState(""),
     [additionalEvidence, setAdditionalEvidence] = useState<File | null>(null);
   const teams = useApi<Entity[]>("/teams", operator);
+  const workers = useApi<Json[]>("/workers", operator);
   const departments = useApi<Entity[]>("/departments", operator);
   const allIncidents = useApi<Incident[]>("/incidents", operator);
   const act = useAction(
@@ -80,16 +83,15 @@ export function IncidentDetails({
   const assign = useAction(async () => {
     await api(`/incidents/${id}/assignments`, {
       method: "POST",
-      body: json({ team_id: Number(team), notes: assignmentNotes }),
+      body: json({ team_id: team ? Number(team) : undefined, worker_id: worker ? Number(worker) : undefined, sharing_scope: sharing, notes: assignmentNotes }),
     });
     setTeam("");
+    setWorker("");
     setAssignmentNotes("");
   }, "Response team assigned");
   const submitCompletion = useAction(async (assignment: Assignment) => {
     if (!completion)
       throw new Error("Add completion evidence before submitting.");
-    if (completionNotes.trim().length < 10)
-      throw new Error("Describe the completed work in at least 10 characters.");
     await upload(completion, id, "completion");
     await api(`/assignments/${assignment.id}`, {
       method: "PATCH",
@@ -106,13 +108,14 @@ export function IncidentDetails({
   const current = incident?.assignments?.find(
     (a) => a.status !== "Cancelled" && a.status !== "Submitted",
   );
+  const locationOnly = user?.role === "worker" && incident?.sharing_scope === "location_only";
   return (
     <>
       <Modal
         open
         onClose={onClose}
         title={incident?.reference || "Incident details"}
-        description="Incident record · every change is saved to the activity history."
+        description={user?.role === "worker" ? "Open the location, do the assigned work, and send a completion photograph." : "Review the report, coordinate the repair, and follow progress."}
         wide
       >
         {query.isLoading ? (
@@ -155,6 +158,8 @@ export function IncidentDetails({
                     </Button>
                   )}
               </div>
+              {locationOnly && <p className="notice">{incident.sharing_notice || "The authority shared this location only. The citizen’s photograph, description and analysis are not available in this task."}</p>}
+              <div className="detail-next-action"><div><strong>{operator ? incident.status === "Resolved" ? "Next: check the completed work" : ["Pending Review", "Reopened", "Submitted"].includes(incident.status) ? "Next: review and assign the report" : "Follow the assigned repair" : user?.role === "worker" ? incident.status === "Resolved" ? "Completion sent — waiting for verification" : incident.status === "Closed" ? "This repair has been verified" : "Next: open the location and complete your task" : incident.status === "Closed" ? "Your report is closed and the repair is verified" : "Your report is being tracked"}</strong><p>{operator ? incident.status === "Resolved" ? "Review the completion photograph, then approve the repair or request further work." : "Check the photo and suggestion, then choose who will carry out the work." : user?.role === "worker" ? "Send a photograph when the repair is finished. Completion notes are optional." : "An authority reviews your report, assigns a team, and verifies its work."}</p></div>{(operator || user?.role === "worker") && <Button className="button-secondary small" onClick={() => setTab("Response")}>{operator && incident.status === "Resolved" ? "Review completion" : user?.role === "worker" ? "Open work actions" : "Assign / manage work"}<ArrowRight size={14} /></Button>}</div>
               <div className="tabs" role="tablist">
                 {["Overview", "Response", "Evidence", "Activity"].map(
                   (item) => (
@@ -179,7 +184,8 @@ export function IncidentDetails({
                   <div className="detail-grid">
                     <section>
                       <h3>Citizen report</h3>
-                      <p className="description-text">{incident.description}</p>
+                      <p className="description-text">{locationOnly ? "Only the location has been shared for this task." : incident.description || "No written description was added. Review the photograph and location."}</p>
+                      {!locationOnly && <div className="report-photo-evidence">{incident.attachments?.filter((a) => a.kind !== "completion").slice(0, 1).map((attachment) => <Evidence key={attachment.id} attachment={attachment} />)}</div>}
                       <dl className="info-grid">
                         <div>
                           <dt>Classification</dt>
@@ -222,9 +228,10 @@ export function IncidentDetails({
                     </section>
                     <div className="map-frame">
                       <CivicMap height={230} incidents={[incident]} controls={false} />
+                      <a className="location-navigation-link" href={`https://www.google.com/maps/dir/?api=1&destination=${incident.latitude},${incident.longitude}`} target="_blank" rel="noreferrer"><MapPin size={16} />Navigate to this location<ArrowRight size={14} /></a>
                     </div>
                   </div>
-                  <section className="detail-section">
+                  {!locationOnly && <section className="detail-section">
                     <div className="section-line">
                       <h3>Civic Intelligence analysis</h3>
                       {operator && (
@@ -252,10 +259,10 @@ export function IncidentDetails({
                     <p className="notice">
                       {incident.analysis?.image_analyzed === true
                         ? "Model assisted analysis · human verification required."
-                        : "Transparent deterministic analysis · image understanding requires a configured vision provider."}
+                        : "Photo detection did not complete. Any text-based suggestion below still needs human review."}
                     </p>
                     <AnalysisSummary analysis={incident.analysis} />
-                  </section>
+                  </section>}
                   {operator && (
                     <section className="detail-section">
                       <h3>Duplicate review</h3>
@@ -322,7 +329,7 @@ export function IncidentDetails({
                           <div className="assignment" key={assignment.id}>
                             <div className="section-line">
                               <strong>
-                                {assignment.team_name ||
+                                {assignment.worker_name ? `${assignment.worker_name} · ` : ""}{assignment.team_name ||
                                   teams.data?.find(
                                     (t) => t.id === assignment.team_id,
                                   )?.name ||
@@ -331,6 +338,7 @@ export function IncidentDetails({
                               <Badge>{assignment.status}</Badge>
                             </div>
                             <p>{assignment.notes || "No assignment notes."}</p>
+                            <p>{assignment.sharing_scope === "location_only" ? "Location only shared with the worker" : "Complete report shared with the worker"}</p>
                             <small>{date(assignment.created_at)}</small>
                             {operator && assignment.status !== "Cancelled" && (
                               <div className="inline-actions">
@@ -370,9 +378,9 @@ export function IncidentDetails({
                         >
                           <Field label="Assign / reassign team">
                             <select
-                              required
+                              required={!worker}
                               value={team}
-                              onChange={(e) => setTeam(e.target.value)}
+                              onChange={(e) => { setTeam(e.target.value); setWorker(""); }}
                             >
                               <option value="">Select response team</option>
                               {teams.data
@@ -384,6 +392,9 @@ export function IncidentDetails({
                                 ))}
                             </select>
                           </Field>
+                          <Field label="Choose a worker (optional)" hint="Choose a person directly, or assign their whole team above."><select value={worker} onChange={(event) => { const value = event.target.value; setWorker(value); if (value) { const selected = workers.data?.find((entry) => String(entry.id) === value); if (selected?.team_id) setTeam(String(selected.team_id)); } }}><option value="">Assign to the selected team</option>{workers.data?.filter((entry) => !team || entry.team_id === Number(team)).map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.team_name || "Team"}</option>)}</select></Field>
+                          {workers.isError && <p className="form-error">Worker names are unavailable. You can still assign a response team.</p>}
+                          <fieldset className="sharing-options"><legend>What should the worker receive?</legend><label><input type="radio" name="sharing-scope" value="location_only" checked={sharing === "location_only"} onChange={() => setSharing("location_only")} /><span><strong>Share location only</strong><small>Send the location and your instructions.</small></span></label><label><input type="radio" name="sharing-scope" value="full_report" checked={sharing === "full_report"} onChange={() => setSharing("full_report")} /><span><strong>Share complete report</strong><small>Include the photo, description, analysis and location.</small></span></label></fieldset>
                           <Field label="Assignment instructions">
                             <textarea
                               value={assignmentNotes}
@@ -393,9 +404,9 @@ export function IncidentDetails({
                               rows={2}
                             />
                           </Field>
-                          <Button pending={assign.isPending} disabled={!team}>
+                          <Button pending={assign.isPending} disabled={!team && !worker}>
                             <ClipboardList size={15} />
-                            Assign team
+                            {worker ? "Assign worker" : "Assign team"}
                           </Button>
                         </form>
                       )}
@@ -404,6 +415,7 @@ export function IncidentDetails({
                       <h3>Status & verification</h3>
                       <p className="muted">Current incident status</p>
                       <Badge>{incident.status}</Badge>
+                      {operator && incident.status === "Resolved" && <div className="completion-review-panel"><h4>Review the completion evidence</h4><div className="evidence-grid">{incident.attachments?.filter((attachment) => attachment.kind === "completion").map((attachment) => <Evidence key={attachment.id} attachment={attachment} />)}</div><Field label="Verification decision" hint="Explain your approval or what the worker needs to correct."><textarea rows={2} minLength={3} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="What did you verify, or what still needs work?" /></Field><div className="inline-actions"><Button pending={act.isPending} disabled={reason.trim().length < 3} onClick={() => act.mutate({ path: `/incidents/${id}/status`, body: { status: "Closed", reason } })}>Approve repair & close</Button><Button className="button-secondary" pending={act.isPending} disabled={reason.trim().length < 3} onClick={() => act.mutate({ path: `/incidents/${id}/status`, body: { status: "In Progress", reason } })}>Return for more work</Button></div></div>}
                       {operator && (
                         <form
                           className="stack top-space"
@@ -423,7 +435,7 @@ export function IncidentDetails({
                             >
                               <option value="">Choose a status</option>
                               {STATUSES.map((s) => (
-                                <option key={s}>{s}</option>
+                                <option key={s} value={s}>{statusLabel(s)}</option>
                               ))}
                             </select>
                           </Field>
@@ -477,7 +489,7 @@ export function IncidentDetails({
                               Start work
                             </Button>
                           )}
-                          {current.status === "In Progress" && (
+                          {["Assigned", "Acknowledged", "In Progress"].includes(current.status) && (
                             <form
                               className="stack"
                               onSubmit={(e) => {
@@ -490,6 +502,7 @@ export function IncidentDetails({
                                   required
                                   type="file"
                                   accept="image/*"
+                                  capture="environment"
                                   onChange={(e) =>
                                     setCompletion(e.target.files?.[0] || null)
                                   }
@@ -498,10 +511,8 @@ export function IncidentDetails({
                               {completion && (
                                 <p className="muted">{completion.name}</p>
                               )}
-                              <Field label="Completion notes" hint="At least 10 characters describing the completed work.">
+                              <Field label="Completion notes (optional)" hint="Add anything the authority should know about the repair.">
                                 <textarea
-                                  required
-                                  minLength={10}
                                   rows={3}
                                   value={completionNotes}
                                   onChange={(e) =>

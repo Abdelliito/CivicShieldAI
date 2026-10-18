@@ -36,7 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         .catch(() => {
           if (current() && !controller.signal.aborted) {
-            session.clear();
+            // Only an actual 401 in api() invalidates credentials. A transport
+            // error or navigation-aborted restoration must not erase a valid
+            // persisted session while another page is opening.
             setUser(null);
             setLoading(false);
           }

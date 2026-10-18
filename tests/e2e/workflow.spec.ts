@@ -47,12 +47,12 @@ test("citizen → authority → worker evidence → authority verification → c
   page.on("dialog", (dialog) => dialog.accept());
   await login(page, "Citizen");
   await page.getByRole("button", { name: "New report", exact: true }).click();
-  await page.getByLabel("Report title", { exact: true }).fill(title);
+  await page.getByLabel("Report title (optional)", { exact: true }).fill(title);
   await page
-    .getByLabel("Location name", { exact: true })
+    .getByLabel("Location name (optional)", { exact: true })
     .fill("MM Alam Road, Gulberg");
   await page
-    .getByLabel("Description", { exact: true })
+    .getByLabel("Description (optional)", { exact: true })
     .fill(
       "Blocked drain full of garbage is causing water accumulation at a busy pedestrian crossing. Synthetic automated test.",
     );
@@ -63,6 +63,7 @@ test("citizen → authority → worker evidence → authority verification → c
     .click();
   await expect(page.getByAltText("Selected hazard preview")).toHaveCount(0);
   await page.getByLabel("Hazard photograph").setInputFiles(photo);
+  await page.getByText("Enter coordinates manually", { exact: true }).click();
   await page.getByLabel("Latitude", { exact: true }).fill("31.5114");
   await page.getByLabel("Longitude", { exact: true }).fill("74.3506");
   const createResponse = page.waitForResponse(
@@ -78,11 +79,14 @@ test("citizen → authority → worker evidence → authority verification → c
   ).toBeVisible();
   await page.getByRole("button", { name: "Edit report", exact: true }).click();
   await page
-    .getByLabel("Description", { exact: true })
+    .getByLabel("Description (optional)", { exact: true })
     .fill(
       "Blocked drain full of garbage is causing water accumulation at a busy pedestrian crossing. Edited and persisted synthetic automated test.",
     );
+  const savedReport = page.waitForResponse((r) => r.url().endsWith(`/api/reports/${created.id}`) && r.request().method() === "PATCH");
   await page.getByRole("button", { name: "Save report", exact: true }).click();
+  expect((await savedReport).ok()).toBe(true);
+  await expect(page.getByRole("dialog", { name: "Edit your report", exact: true })).toHaveCount(0);
   await expect(
     page.getByText(/Edited and persisted synthetic automated test/).first(),
   ).toBeVisible();
@@ -156,7 +160,7 @@ test("citizen → authority → worker evidence → authority verification → c
     .getByLabel("Completion evidence", { exact: true })
     .setInputFiles(photo);
   await page
-    .getByLabel("Completion notes", { exact: true })
+    .getByLabel("Completion notes (optional)", { exact: true })
     .fill(
       "Synthetic test: obstruction removed, drainage flow checked, photograph attached.",
     );
@@ -187,7 +191,7 @@ test("citizen → authority → worker evidence → authority verification → c
   await expect(
     page
       .locator(".incident-detail .badge")
-      .filter({ hasText: /^Closed$/ })
+      .filter({ hasText: /^Closed/ })
       .first(),
   ).toBeVisible();
   await page.getByRole("button", { name: "Close dialog", exact: true }).click();
@@ -196,7 +200,7 @@ test("citizen → authority → worker evidence → authority verification → c
   await expect(
     page
       .locator(".incident-detail .badge")
-      .filter({ hasText: /^Closed$/ })
+      .filter({ hasText: /^Closed/ })
       .first(),
   ).toBeVisible();
   await page.getByRole("button", { name: "Close dialog", exact: true }).click();
@@ -211,18 +215,19 @@ test("citizen withdrawal is reversible and report photos/location survive reload
   await login(page, "Citizen");
   const title = `E2E open manhole ${Date.now()}`;
   await page.getByRole("button", { name: "New report", exact: true }).click();
-  await page.getByLabel("Report title", { exact: true }).fill(title);
+  await page.getByLabel("Report title (optional)", { exact: true }).fill(title);
   await page
-    .getByLabel("Location name", { exact: true })
+    .getByLabel("Location name (optional)", { exact: true })
     .fill("Jail Road school entrance");
   await page
-    .getByLabel("Description", { exact: true })
+    .getByLabel("Description (optional)", { exact: true })
     .fill(
       "Open manhole beside a school. Children and pedestrians are exposed to a deep hole. Synthetic test.",
     );
   await page.context().grantPermissions(["geolocation"]);
   await page.context().setGeolocation({ latitude: 31.535, longitude: 74.331 });
   await page.getByRole("button", { name: "Use GPS", exact: true }).click();
+  await page.getByText("Enter coordinates manually", { exact: true }).click();
   await expect(page.getByLabel("Latitude", { exact: true })).toHaveValue(
     "31.535",
   );
@@ -331,7 +336,7 @@ test("registration, login errors, expired sessions and notification read state",
     .getByRole("button", { name: "Create citizen account", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Your civic dashboard", exact: true }),
+    page.getByRole("heading", { name: "Your neighbourhood, made safer", exact: true }),
   ).toBeVisible();
   await page.goto("/admin");
   await expect(page).toHaveURL("http://127.0.0.1:5173/");
@@ -591,7 +596,7 @@ test("duplicate review, classification, notes, reassignment and archive controls
   await expect(
     page
       .locator(".incident-detail .badge")
-      .filter({ hasText: /^Rejected$/ })
+      .filter({ hasText: /^Not accepted$/ })
       .first(),
   ).toBeVisible();
   await page
@@ -627,7 +632,7 @@ test("desktop/mobile render and API failures produce visible feedback", async ({
   await login(page, "Authority");
   await page.setViewportSize({ width: 1536, height: 1024 });
   await expect(
-    page.getByRole("heading", { name: "Command centre", exact: true }),
+    page.getByRole("heading", { name: "Reports & response", exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: ".runtime/desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });

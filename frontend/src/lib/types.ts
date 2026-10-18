@@ -23,6 +23,9 @@ export interface Assignment {
   status: string;
   notes?: string;
   created_at?: string;
+  worker_id?: number | null;
+  worker_name?: string | null;
+  sharing_scope?: "full_report" | "location_only";
 }
 export interface Incident {
   id: number;
@@ -51,6 +54,8 @@ export interface Incident {
   assignments?: Assignment[];
   duplicates?: Json[];
   recommendations?: Json[];
+  sharing_scope?: "full_report" | "location_only";
+  sharing_notice?: string;
 }
 export interface Risk {
   id: number;
@@ -98,3 +103,9 @@ export const CATEGORIES = [
   "Other civic infrastructure hazards",
 ];
 export const SEVERITIES = ["Low", "Medium", "High", "Critical"];
+export const STATUS_LABELS: Record<string, string> = {
+  Submitted: "Report received", "Under Analysis": "Checking report", "Pending Review": "Awaiting review",
+  Assigned: "Team assigned", "In Progress": "Work in progress", Resolved: "Awaiting repair verification",
+  Closed: "Closed · repair verified", Rejected: "Not accepted", Withdrawn: "Withdrawn", Reopened: "Needs further work",
+};
+export function statusLabel(status: string) { return STATUS_LABELS[status] || status; }

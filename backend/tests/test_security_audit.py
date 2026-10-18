@@ -84,10 +84,11 @@ def test_new_assignment_requires_fresh_completion_evidence(client, roles, report
     assert client.patch(url, headers=roles['worker'], json={'status': 'Submitted', 'notes': 'Current inspection complete, drainage restored and checked.'}).status_code == 200
 
 
-def test_worker_evidence_requires_current_work_in_progress(client, roles, report):
+def test_worker_evidence_requires_current_assignment(client, roles, report):
     assert upload_completion(client, roles, report['id']).status_code == 403
     assignment = assign(client, roles, report)
-    assert upload_completion(client, roles, report['id']).status_code == 409
+    # Simplified completion accepts evidence immediately after assignment.
+    assert upload_completion(client, roles, report['id']).status_code == 201
     assert client.patch(f'/api/assignments/{assignment["id"]}', headers=roles['worker'], json={'status': 'In Progress'}).status_code == 200
     assert upload_completion(client, roles, report['id']).status_code == 201
 

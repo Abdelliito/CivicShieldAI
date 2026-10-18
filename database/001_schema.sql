@@ -139,15 +139,19 @@ CREATE TABLE assignments (
 	incident_id INTEGER NOT NULL, 
 	team_id INTEGER NOT NULL, 
 	assigned_by INTEGER NOT NULL, 
+	worker_id INTEGER,
+	sharing_scope VARCHAR(20) DEFAULT 'full_report' NOT NULL,
 	status VARCHAR(30) NOT NULL, 
 	notes TEXT NOT NULL, 
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
 	PRIMARY KEY (id), 
 	CONSTRAINT valid_assignment_status CHECK (status IN ('Assigned','Acknowledged','In Progress','Submitted','Cancelled')), 
+	CONSTRAINT valid_assignment_sharing_scope CHECK (sharing_scope IN ('full_report','location_only')),
 	FOREIGN KEY(incident_id) REFERENCES incidents (id), 
 	FOREIGN KEY(team_id) REFERENCES teams (id), 
-	FOREIGN KEY(assigned_by) REFERENCES users (id)
+	FOREIGN KEY(assigned_by) REFERENCES users (id),
+	FOREIGN KEY(worker_id) REFERENCES users (id)
 );
 
 CREATE INDEX ix_assignments_incident_id ON assignments (incident_id);
@@ -161,6 +165,7 @@ CREATE TABLE attachments (
 	content_type VARCHAR(60) NOT NULL, 
 	kind VARCHAR(30) NOT NULL, 
 	deleted BOOLEAN NOT NULL, 
+	analysis JSON DEFAULT '{}' NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(incident_id) REFERENCES incidents (id), 

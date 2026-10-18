@@ -3,7 +3,7 @@ import { Filter, Search, X } from "lucide-react";
 import { useApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import type { Entity, Incident } from "../lib/types";
-import { CATEGORIES, SEVERITIES, STATUSES } from "../lib/types";
+import { CATEGORIES, SEVERITIES, STATUSES, statusLabel } from "../lib/types";
 import { Empty, ErrorState, Loading } from "../components/UI";
 import { IncidentTable } from "../components/IncidentTable";
 export function Incidents({ onOpen }: { onOpen: (id: number) => void }) {
@@ -80,7 +80,7 @@ export function Incidents({ onOpen }: { onOpen: (id: number) => void }) {
           >
             <option value="">All statuses</option>
             {STATUSES.map((s) => (
-              <option key={s}>{s}</option>
+              <option key={s} value={s}>{statusLabel(s)}</option>
             ))}
           </select>
           <select

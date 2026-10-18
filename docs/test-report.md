@@ -1,5 +1,49 @@
 # Executed verification report
 
+## Current update — 19 October 2026
+
+| Check | Executed result |
+| --- | --- |
+| Complete backend suite | **128 passed**, isolated PostgreSQL `civicshield_test`; one dependency deprecation warning. |
+| Frontend unit suite | **19 passed**, four files including photo-preview safeguards, interrupted session restoration and expired-token handling. |
+| Production build | TypeScript/Vite **passed**; 1,755 modules, JS 645.25 kB (195.07 kB gzip), CSS 91.26 kB. |
+| Browser acceptance | **36 unique checks have passing final results**, across the combined and focused reruns below. Actual frontend/API/PostgreSQL, all four roles and 1440/1280/768/390px views. |
+| Live weather | Actual Open-Meteo current conditions and seven forecast dates retrieved; desktop/mobile weather, rain chance, humidity, wind and sourced risk advice passed. |
+| Data migration | All **39 original incidents/reports**, 13 users, 22 assignments and 29 attachment rows retained. Legacy-schema upgrade tested twice for idempotence. Private backup under `.runtime/backups`; uploads retained. |
+| Stop/start | All three owned services stopped, including the Windows Python child process. PostgreSQL, backend and frontend restarted; frontend HTTP 200 and database health connected. |
+| Live vision | **Not verified**. No cloud vision key or installed/running local vision model available. **38 provider/config tests use HTTP mocks**, not a real model. Detection-unavailable UI and human-review reporting tested. |
+| Docker | Compose configuration/interpolation passed, including local-provider variables. No Linux engine: image builds and container execution **not tested**. No public application deployment. GitHub source synchronization was authorized separately after these local checks. |
+
+The combined 32-check browser run passed 29 and exposed three assertions using
+old headings/status labels. Updated those assertions and reran the retained full
+report lifecycle, registration/login/session/notification checks, and duplicate
+review/classification/note/reassignment/reversible-archive journey to passing results.
+The four new checks passed: photo-only location-only direct-worker lifecycle with
+optional notes, corrections/fresh evidence/closure; live weather and readable
+alerts at desktop and 390px; and controlled weather outage/GPS-denial handling.
+
+Actual fixes found during integration include report-edit category validation,
+file picker mounting after the modal portal, and valid saved credentials being
+erased after an interrupted restoration request. The report-edit browser test
+now waits for its successful PATCH and dialog closure before reloading, so text
+inside an unsaved textarea cannot pass as database persistence.
+
+Raw evidence lives outside the source project under `E:/Desktop/CivicShieldAI-QA/`:
+`final/test-results` (29 combined passes), `final-rerun-fixed/test-results`
+(three weather/failure checks), `lifecycle-verified/test-results` (three passing
+lifecycle/auth journeys), and `duplicate-final/test-results` (final passing archive
+journey). Screenshots are in `upgrade/`. Earlier failed/interrupted traces are
+retained for diagnosis, excluded from pass counts and the source ZIP.
+
+The dedicated Browser plugin was unavailable. Inspection used Codex's in-app
+browser, with repository Playwright Chromium for repeatable acceptance as the
+user requested. Physical phone camera/GPS accuracy and actual model inference
+remain external checks. See [workflow/configuration/changed files](workflow-upgrade.md)
+and [provider setup](vision-providers.md). Current notes supersede the older PDF
+and historical test counts for the revised workflow.
+
+## Historical verification — 17 October 2026
+
 Date: **17 October 2026**. Windows, Node 22.20.0, Python 3.10.9, local PostgreSQL 18.4. React/Vite at `http://127.0.0.1:5173`; FastAPI at `http://127.0.0.1:8000`.
 
 ## Executed results

@@ -98,6 +98,7 @@ class Attachment(Base):
     content_type: Mapped[str] = mapped_column(String(60))
     kind: Mapped[str] = mapped_column(String(30), default='report')
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    analysis: Mapped[dict] = mapped_column(JSON, default=dict, server_default='{}')
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -114,11 +115,16 @@ class Note(Base):
 
 class Assignment(Base):
     __tablename__ = 'assignments'
-    __table_args__ = (CheckConstraint("status IN ('Assigned','Acknowledged','In Progress','Submitted','Cancelled')", name='valid_assignment_status'),)
+    __table_args__ = (
+        CheckConstraint("status IN ('Assigned','Acknowledged','In Progress','Submitted','Cancelled')", name='valid_assignment_status'),
+        CheckConstraint("sharing_scope IN ('full_report','location_only')", name='valid_assignment_sharing_scope'),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     incident_id: Mapped[int] = mapped_column(ForeignKey('incidents.id'), index=True)
     team_id: Mapped[int] = mapped_column(ForeignKey('teams.id'))
     assigned_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    worker_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True)
+    sharing_scope: Mapped[str] = mapped_column(String(20), default='full_report', server_default='full_report')
     status: Mapped[str] = mapped_column(String(30), default='Assigned')
     notes: Mapped[str] = mapped_column(Text, default='')
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

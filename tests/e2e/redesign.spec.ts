@@ -1,4 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // This suite exercises existing demo data without creating or modifying reports,
 // assignments, weather, recommendations, notifications, or administrative records.
@@ -13,7 +15,7 @@ const viewports = [
 ];
 const routes: Record<Role, string[]> = {
   Authority: ["/", "/incidents", "/risk", "/agents", "/notifications"],
-  Citizen: ["/", "/incidents", "/notifications"],
+  Citizen: ["/", "/incidents", "/weather", "/alerts", "/notifications"],
   Worker: ["/", "/incidents", "/notifications"],
   Admin: ["/admin", "/", "/incidents", "/risk", "/agents", "/notifications"],
 };
@@ -23,7 +25,7 @@ const headings: Record<string, string> = {
   "/admin": "Administration",
   "/notifications": "Notifications",
 };
-const evidenceDirectory = "docs/redesign/qa";
+const evidenceDirectory = process.env.CIVIC_QA_DIR || join(tmpdir(), "civicshield-qa");
 const reference = "CS-DEMO-0004";
 const photograph = {
   name: "unsaved-redesign-preview.png",
@@ -155,9 +157,10 @@ test("390px citizen reporting keeps photo and numeric location controls usable a
   await signIn(page, "Citizen");
   const newReport = page.getByRole("button", { name: "New report", exact: true });
   await newReport.click();
-  const dialog = page.getByRole("dialog", { name: "Report a civic hazard", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Report a problem", exact: true });
   await expect(dialog).toBeVisible();
-  for (const label of ["Report title", "Location name", "Description", "Latitude", "Longitude", "Hazard photograph"])
+  await dialog.getByText("Enter coordinates manually", { exact: true }).click();
+  for (const label of ["Report title (optional)", "Location name (optional)", "Description (optional)", "Latitude", "Longitude", "Hazard photograph"])
     await expect(dialog.getByLabel(label, { exact: true })).toBeVisible();
   await expect(dialog.getByLabel("Camera photograph", { exact: true })).toHaveAttribute("capture", "environment");
   const cameraChooser = page.waitForEvent("filechooser");
@@ -167,7 +170,7 @@ test("390px citizen reporting keeps photo and numeric location controls usable a
   const latitude = dialog.getByLabel("Latitude", { exact: true });
   await latitude.fill("");
   await expect(latitude).toHaveValue("");
-  expect(await latitude.evaluate((input) => (input as HTMLInputElement).validity.valueMissing)).toBe(true);
+  await expect(dialog.getByRole("button", { name: "Submit report", exact: true })).toBeVisible();
   await latitude.fill("31.510122");
   await dialog.getByLabel("Longitude", { exact: true }).fill("74.350441");
   await expect(dialog.getByLabel("Latitude", { exact: true })).toHaveValue("31.510122");

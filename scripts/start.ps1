@@ -16,7 +16,7 @@ try { Invoke-RestMethod 'http://127.0.0.1:8000/api/health' -TimeoutSec 2 | Out-N
 try { Invoke-WebRequest 'http://127.0.0.1:5173' -UseBasicParsing -TimeoutSec 2 | Out-Null } catch {
   $nodeExe = (Get-Command node).Source
   $viteScript = Join-Path $projectRoot 'frontend\node_modules\vite\bin\vite.js'
-  $uiProcess = Start-Process -FilePath $nodeExe -ArgumentList @($viteScript,'--host','127.0.0.1','--port','5173','--strictPort') -WorkingDirectory (Join-Path $projectRoot 'frontend') -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logRoot 'frontend.log') -RedirectStandardError (Join-Path $logRoot 'frontend-error.log')
+  $uiProcess = Start-Process -FilePath $nodeExe -ArgumentList @(('"' + $viteScript + '"'),'--host','127.0.0.1','--port','5173','--strictPort') -WorkingDirectory (Join-Path $projectRoot 'frontend') -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logRoot 'frontend.log') -RedirectStandardError (Join-Path $logRoot 'frontend-error.log')
   $uiProcess.Id | Set-Content (Join-Path $logRoot 'frontend.pid')
 }
 Write-Host 'Frontend http://127.0.0.1:5173 | API docs http://127.0.0.1:8000/docs'

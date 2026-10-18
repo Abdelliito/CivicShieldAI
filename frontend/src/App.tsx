@@ -20,6 +20,7 @@ import {
   TriangleAlert,
   Info,
   X,
+  CloudSun,
 } from "lucide-react";
 import { api, json, useAction, useApi } from "./lib/api";
 import { useAuth } from "./lib/auth";
@@ -34,11 +35,12 @@ import { Agents } from "./pages/Agents";
 import { Admin } from "./pages/Admin";
 import { Notifications } from "./pages/Notifications";
 import { Login } from "./pages/Login";
+import { CitizenAlerts, CitizenWeather, WeatherLocationProvider } from "./pages/CitizenWeather";
 export default function App() {
   const { user, loading } = useAuth();
   if (loading) return <Loading text="Opening your workspace…" />;
   if (!user) return <Login />;
-  return <Workspace />;
+  return <WeatherLocationProvider><Workspace /></WeatherLocationProvider>;
 }
 function Workspace() {
   const { user, logout } = useAuth();
@@ -49,6 +51,7 @@ function Workspace() {
   }, [location.pathname]);
   const [mobile, setMobile] = useState(false),
     [report, setReport] = useState(false),
+    [photoMode, setPhotoMode] = useState<"upload" | "camera" | undefined>(),
     [details, setDetails] = useState<number | null>(null),
     [banner, setBanner] = useState(true);
   const notifications = useApi<Json[]>("/notifications"),
@@ -90,12 +93,12 @@ function Workspace() {
   const titles: Record<string, [string, string]> = {
     "/": [
       user?.role === "citizen"
-        ? "Your civic dashboard"
+        ? "Your neighbourhood, made safer"
         : user?.role === "worker"
-          ? "Field workspace"
-          : "Command centre",
+          ? "Your assigned work"
+          : "Reports & response",
       user?.role === "citizen"
-        ? "Your reports. Your neighbourhood. A safer city."
+        ? "Report a problem. Follow the repair."
         : user?.role === "worker"
           ? "Your team’s assignments and response progress"
           : "Lahore · Civic operations",
@@ -118,6 +121,8 @@ function Workspace() {
       "Manage departments, teams, zones, and access",
     ],
     "/notifications": ["Notifications", "Stay connected to every response"],
+    "/weather": ["Local weather", "Today and the next 7 days in your selected area"],
+    "/alerts": ["Disaster alerts & predictions", "Understand local risks and practical precautions"],
   };
   const [title, subtitle] = titles[location.pathname] || titles["/"];
   const unread = notifications.data?.filter((n) => !n.read).length || 0;
@@ -143,6 +148,10 @@ function Workspace() {
           { to: "/agents", label: "Agent activity", icon: Network },
         ]
       : []),
+    ...(user?.role === "citizen" ? [
+      { to: "/weather", label: "Local weather", icon: CloudSun },
+      { to: "/alerts", label: "Disaster alerts & predictions", icon: ChartNoAxesColumnIncreasing },
+    ] : []),
     ...(user?.role === "admin"
       ? [{ to: "/admin", label: "Administration", icon: Settings2 }]
       : []),
@@ -280,7 +289,7 @@ function Workspace() {
             <div className="demo-banner">
               <Info size={15} />
               <span>
-                Synthetic Lahore demonstration <b>·</b> {health.data?.ai_mode === "vision_api" ? "Model assisted analysis" : "Text-rule analysis"} <b>·</b> Human approval required.
+                Demonstration records included <b>·</b> Photo detection status is shown on each report <b>·</b> A person reviews every report.
               </span>
               <button
                 className="icon-button"
@@ -292,7 +301,7 @@ function Workspace() {
             </div>
           )}
           <Routes>
-            <Route path="/" element={<Dashboard onOpen={setDetails} />} />
+            <Route path="/" element={<Dashboard onOpen={setDetails} onReport={(mode) => { setPhotoMode(mode); setReport(true); }} />} />
             <Route
               path="/incidents"
               element={<Incidents onOpen={setDetails} />}
@@ -307,6 +316,7 @@ function Workspace() {
                 <Route path="/agents" element={<Agents />} />
               </>
             )}
+            {user?.role === "citizen" && <><Route path="/weather" element={<CitizenWeather />} /><Route path="/alerts" element={<CitizenAlerts />} /></>}
             {user?.role === "admin" && (
               <Route path="/admin" element={<Admin />} />
             )}
@@ -325,7 +335,8 @@ function Workspace() {
       {report && (
         <ReportForm
           open
-          onClose={() => setReport(false)}
+          initialPhotoMode={photoMode}
+          onClose={() => { setReport(false); setPhotoMode(undefined); }}
           onSaved={(id) => {
             setDetails(id);
             navigate("/incidents");

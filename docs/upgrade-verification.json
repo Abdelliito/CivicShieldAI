@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-19",
+  "timezone": "Asia/Karachi",
+  "backend_tests_passed": 128,
+  "frontend_tests_passed": 19,
+  "browser_unique_checks_passed_after_focused_reruns": 36,
+  "production_build": "passed",
+  "native_stop_restart": "passed",
+  "live_weather": "passed: actual Open-Meteo current and seven-day forecast",
+  "live_vision": "not verified: no cloud key or installed local vision runtime/model",
+  "provider_protocol_tests": "38 passed using controlled HTTP mocks",
+  "migration": "additive/idempotent; original 39 incidents/reports and all original users/assignments/attachments retained",
+  "docker": "Compose config passed; no container engine available",
+  "verification_scope": "Local pre-upload checks; subsequent GitHub source synchronization authorized separately",
+  "public_application_deployed": false
+}

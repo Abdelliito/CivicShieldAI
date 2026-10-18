@@ -7,7 +7,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 output = Path(sys.argv[1]).resolve() if len(sys.argv)>1 else root/'.runtime/CivicShieldAI.zip'
-excluded_dirs = {'.git','.venv','.runtime','node_modules','dist','__pycache__','.pytest_cache','uploads','test-results','playwright-report'}
+excluded_dirs = {'.git','.venv','.runtime','node_modules','dist','__pycache__','.pytest_cache','uploads','test-results','playwright-report','output','tmp'}
 excluded_names = {'.env','.env.local','.env.production','.env.development'}
 output.parent.mkdir(parents=True, exist_ok=True)
 files=[]
@@ -16,7 +16,7 @@ for directory, subdirs, names in os.walk(root):
     for name in names:
         path=Path(directory)/name
         if path.name in excluded_names or path.suffix in {'.zip','.log','.pyc','.tsbuildinfo'}: continue
-        if path.name.startswith('.env') and path.name != '.env.example': continue
+        if path.name.startswith('.env') and path.name not in {'.env.example', '.env.docker.example'}: continue
         files.append(path)
 with ZipFile(output,'w',ZIP_DEFLATED,compresslevel=6) as archive:
     for path in sorted(files): archive.write(path,Path('CivicShieldAI')/path.relative_to(root))

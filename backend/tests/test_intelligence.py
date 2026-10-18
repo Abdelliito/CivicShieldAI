@@ -172,9 +172,10 @@ def test_vision_is_real_structured_server_request(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "unit-test-key")
     monkeypatch.setenv("VISION_MODEL", "configured-vision-model")
     image = tmp_path / "hazard.png"
-    image.write_bytes(b"test-image-bytes")
+    from PIL import Image
+    Image.new('RGB', (20, 20), '#5c7369').save(image, 'PNG')
     output = ai.classify_text("Blocked drain in a lane").model_dump()
-    output.update(method="vision_model", image_analyzed=True, summary="Photo evidence suggests a blocked drainage opening; verify on site.")
+    output.update(method="vision_model", image_analyzed=True, relevance="relevant", detected_title="Blocked drainage opening", summary="Photo evidence suggests a blocked drainage opening; verify on site.")
     requests = []
     def handler(request):
         requests.append(json.loads(request.content))
@@ -282,7 +283,8 @@ def test_vision_failure_preserves_report_and_logs_fallback(db, monkeypatch):
     assert result["image_analyzed"] is False
     assert result["provider_errors"]
     execution = db.query(m.AgentExecution).filter(m.AgentExecution.incident_id == incident.id).first()
-    assert execution.status == "Fallback" and execution.attempts == 2
+    # A missing local file must fail before any provider request is attempted.
+    assert execution.status == "Fallback" and execution.attempts == 0
 
 
 def test_report_location_edit_retires_stale_duplicate_candidate(db):

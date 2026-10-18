@@ -5,7 +5,7 @@ import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -18,7 +18,7 @@ from .db import Base, SessionLocal, engine, get_db
 from .models import *
 from .schemas import *
 from .security import current_user, hash_password, issue_token, require_roles, verify_password
-from .services import OFFICIAL_ROLES, TERMINAL, audit, choose_zone, commit, dump, get_incident, incident_dump, notify, process_incident, recalculate, visible_incidents
+from .services import OFFICIAL_ROLES, TERMINAL, audit, choose_zone, commit, dump, get_incident, incident_dump, notify, process_incident, recalculate, visible_incidents, current_worker_assignment, location_only, attachment_visible, assignment_dump
 
 logger = logging.getLogger(__name__)
 official = require_roles('authority', 'admin')
@@ -47,6 +47,8 @@ async def lifespan(app):
     if len(settings.jwt_secret) < 32:
         raise RuntimeError('Set JWT_SECRET to a random secret of at least 32 characters in .env.')
     Base.metadata.create_all(engine)
+    from .migrations import apply_migrations
+    apply_migrations(engine)
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     if settings.demo_mode:
         from .seed import seed_demo
@@ -62,6 +64,8 @@ async def lifespan(app):
 
 
 app = FastAPI(title='CivicShield AI', version='1.0.0', lifespan=lifespan)
+from .citizen_weather import router as citizen_weather_router
+app.include_router(citizen_weather_router)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False, allow_methods=['GET', 'POST', 'PATCH', 'DELETE'], allow_headers=['Authorization', 'Content-Type'])
 
 
@@ -74,7 +78,9 @@ async def validation_error(request, exc):
 @app.get('/api/health')
 def health(db: Session = Depends(get_db)):
     db.execute(text('SELECT 1'))
-    return {'status': 'ok', 'database': 'connected', 'demo_mode': settings.demo_mode, 'ai_mode': 'vision_api' if settings.openai_api_key else 'transparent_text_rules', 'service': 'CivicShield AI'}
+    from .vision import provider_status
+    vision = provider_status()
+    return {'status': 'ok', 'database': 'connected', 'demo_mode': settings.demo_mode, 'ai_mode': 'vision_configured' if vision.get('configured') else 'transparent_text_rules', 'vision': vision, 'service': 'CivicShield AI'}
 
 
 @app.post('/api/auth/login')
@@ -109,10 +115,10 @@ def incidents(search: str = '', category: str | None = None, status: str | None 
     query = visible_incidents(db, user)
     if not include_archived:
         query = query.where(Incident.archived.is_(False))
-    if search:
+    if search and user.role != 'worker':
         query = query.where(or_(Incident.title.ilike(f'%{search}%'), Incident.description.ilike(f'%{search}%'), Incident.reference.ilike(f'%{search}%'), Incident.location_name.ilike(f'%{search}%')))
     for key, value in [('category', category), ('status', status), ('severity', severity), ('zone_id', zone_id)]:
-        if value is not None:
+        if value is not None and not (user.role == 'worker' and key in {'category', 'severity'}):
             query = query.where(getattr(Incident, key) == value)
     # Date-only and timezone-free API bounds use UTC, matching persisted event
     # timestamps. Never let PostgreSQL's session timezone silently shift them.
@@ -128,7 +134,15 @@ def incidents(search: str = '', category: str | None = None, status: str | None 
             query = query.where(Incident.created_at < to_date + timedelta(days=1))
         else:
             query = query.where(Incident.created_at <= to_date)
-    return [incident_dump(db, i) for i in db.scalars(query.order_by(Incident.created_at.desc())).all()]
+    rows = [incident_dump(db, i, viewer=user) for i in db.scalars(query.order_by(Incident.created_at.desc())).all()]
+    if user.role == 'worker':
+        if search:
+            rows = [row for row in rows if search.casefold() in ' '.join(str(row.get(k) or '') for k in ['title', 'description', 'reference', 'location_name']).casefold()]
+        if category is not None:
+            rows = [row for row in rows if row['category'] == category]
+        if severity is not None:
+            rows = [row for row in rows if row['severity'] == severity]
+    return rows
 
 
 @app.get('/api/incidents/{incident_id}')
@@ -144,17 +158,33 @@ def create_report(data: ReportCreate, db: Session = Depends(get_db), user: User 
         if not attachment or attachment.user_id != user.id or attachment.incident_id is not None or attachment.deleted or attachment.kind != 'report':
             raise HTTPException(400, 'A selected photograph is missing, belongs to someone else, or is already attached.')
         attachments.append(attachment)
-    incident = Incident(reference=f'CS-{datetime.now(timezone.utc):%y%m%d}-{secrets.token_hex(3).upper()}', title=data.title, description=data.description, latitude=data.latitude, longitude=data.longitude, location_name=data.location_name, zone_id=choose_zone(db, data.latitude, data.longitude), citizen_id=user.id, category='Other civic infrastructure hazards')
+    preview = next((a.analysis for a in attachments if a.analysis and a.analysis.get('image_analyzed') is True and a.analysis.get('status') == 'success'), {})
+    title = data.title or (str(preview.get('detected_title') or preview.get('category') or '')[:180] if preview else '') or 'Reported civic issue'
+    incident = Incident(reference=f'CS-{datetime.now(timezone.utc):%y%m%d}-{secrets.token_hex(3).upper()}', title=title, description=data.description, latitude=data.latitude, longitude=data.longitude, location_name=data.location_name, zone_id=choose_zone(db, data.latitude, data.longitude), citizen_id=user.id, category='Other civic infrastructure hazards')
     db.add(incident)
     db.flush()
     db.add(Report(incident_id=incident.id, citizen_id=user.id, original_description=data.description))
     for attachment in attachments:
         attachment.incident_id = incident.id
-    audit(db, user, 'Report submitted', data.title, incident.id)
+    audit(db, user, 'Report submitted', title, incident.id)
     notify(db, incident, 'Report received', f'{incident.reference} is being analyzed. Thank you for reporting this hazard.')
     commit(db)
-    incident = process_incident(db, incident)
+    incident = process_incident(db, incident, reuse_attachment_analysis=True)
+    if data.category:
+        apply_citizen_category(db, incident, user, data.category)
     return incident_dump(db, incident, True, user)
+
+
+def apply_citizen_category(db, incident, user, category):
+    incident.category = category
+    incident.analysis = {**incident.analysis, 'citizen_reviewed_category': category, 'category_requires_authority_review': True}
+    from .intelligence import CATEGORY_RULES
+    department_name = next((name for candidate, _, name in CATEGORY_RULES if candidate == category), 'General Civic Services')
+    department = db.scalar(select(Department).where(Department.name == department_name, Department.active.is_(True)))
+    incident.department_id = department.id if department else None
+    audit(db, user, 'Citizen reviewed suggested category', category, incident.id)
+    commit(db)
+    recalculate(db)
 
 
 @app.patch('/api/reports/{incident_id}')
@@ -168,6 +198,7 @@ def edit_report(incident_id: int, data: ReportEdit, db: Session = Depends(get_db
     if not values:
         raise HTTPException(400, 'Supply at least one report field to change.')
     attachment_ids = values.pop('attachment_ids', None)
+    reviewed_category = values.pop('category', None)
     new_attachments = []
     if attachment_ids is not None:
         for attachment_id in set(attachment_ids):
@@ -183,11 +214,19 @@ def edit_report(incident_id: int, data: ReportEdit, db: Session = Depends(get_db
             attachment.incident_id = incident.id
     for key, value in values.items():
         setattr(incident, key, value)
+    has_photo = new_attachments or db.scalar(select(Attachment.id).where(Attachment.incident_id == incident.id, Attachment.kind == 'report', Attachment.deleted.is_(False)))
+    if not has_photo and len((incident.title + ' ' + incident.description).strip()) < 15:
+        raise HTTPException(422, 'Keep a photograph or describe the issue in at least 15 characters.')
+    if not incident.title:
+        incident.title = 'Reported civic issue'
     incident.zone_id = choose_zone(db, incident.latitude, incident.longitude)
     incident.status = 'Pending Review'
     audit(db, user, 'Report edited', ', '.join(values) + (f'; linked {len(new_attachments)} new photograph(s)' if new_attachments else ''), incident.id)
     commit(db)
-    return incident_dump(db, process_incident(db, incident), True, user)
+    incident = process_incident(db, incident)
+    if reviewed_category:
+        apply_citizen_category(db, incident, user, reviewed_category)
+    return incident_dump(db, incident, True, user)
 
 
 @app.post('/api/reports/{incident_id}/withdraw')
@@ -293,7 +332,9 @@ def update_status(incident_id: int, data: StatusChange, db: Session = Depends(ge
             raise HTTPException(409, 'A current team assignment is required before progressing work.')
         assignment.status = 'In Progress'
         if old_status == 'Resolved':
+            assignment.notes = data.reason
             audit(db, user, 'Completion corrections requested', data.reason, incident.id)
+            notify_assignment_workers(db, incident, assignment, 'Completion corrections requested')
     if data.status == 'Reopened':
         incident.archived = False
         report = db.scalar(select(Report).where(Report.incident_id == incident.id))
@@ -388,8 +429,8 @@ async def upload(file: UploadFile = File(...), incident_id: int | None = Form(de
         if user.role == 'worker':
             active_team(db, user.team_id)
             assignment = current_assignment(db, incident)
-            if not assignment or assignment.team_id != user.team_id or assignment.status != 'In Progress':
-                raise HTTPException(409, 'Start your current assignment before uploading completion evidence.')
+            if not assignment or assignment.team_id != user.team_id or assignment.status not in {'Assigned', 'Acknowledged', 'In Progress'}:
+                raise HTTPException(409, 'Completion evidence requires a current assignment awaiting work.')
     content = await file.read(8 * 1024 * 1024 + 1)
     if len(content) > 8 * 1024 * 1024:
         raise HTTPException(413, 'Images must be 8 MB or smaller.')
@@ -417,13 +458,37 @@ async def upload(file: UploadFile = File(...), incident_id: int | None = Form(de
     return dump(attachment)
 
 
+@app.post('/api/uploads/{attachment_id}/analyze')
+def analyze_upload(attachment_id: int, data: UploadAnalysis = Body(default=UploadAnalysis()), db: Session = Depends(get_db), user: User = Depends(require_roles('citizen'))):
+    attachment = db.get(Attachment, attachment_id)
+    if not attachment or attachment.deleted:
+        raise HTTPException(404, 'Photograph not found.')
+    if attachment.user_id != user.id or attachment.incident_id is not None or attachment.kind != 'report':
+        raise HTTPException(403, 'Only your own unsubmitted report photograph can be analyzed here.')
+    path = settings.upload_dir / attachment.storage_name
+    if not path.is_file():
+        raise HTTPException(404, 'The photograph file is unavailable. Upload it again.')
+    from .vision import analyze_image_file
+    try:
+        result = analyze_image_file(path, description=data.description, title=data.title)
+    except Exception:
+        logger.exception('Draft photograph analysis failed for attachment %s', attachment.id)
+        result = {'status': 'unavailable', 'image_analyzed': False, 'method': 'unavailable', 'human_review_required': True, 'can_submit': True, 'summary': 'Photo analysis is unavailable. You can submit this photograph for a person to review.', 'errors': [{'code': 'analysis_unavailable', 'message': 'Photo analysis could not finish. Please try again or submit for human review.'}]}
+    attachment.analysis = result
+    audit(db, user, 'Draft photograph analyzed' if result.get('image_analyzed') is True else 'Draft photograph needs human review', f'Attachment {attachment.id}; status: {result.get("status", "unknown")}')
+    commit(db)
+    return {'attachment_id': attachment.id, 'analysis': result, 'detection_succeeded': result.get('image_analyzed') is True and result.get('method') == 'vision_model' and result.get('status') == 'success' and result.get('relevance') == 'relevant'}
+
+
 @app.get('/api/uploads/{attachment_id}/file')
 def attachment_file(attachment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
     attachment = db.get(Attachment, attachment_id)
     if not attachment or attachment.deleted:
         raise HTTPException(404, 'Photograph not found.')
     if attachment.incident_id:
-        get_incident(db, attachment.incident_id, user)
+        incident = get_incident(db, attachment.incident_id, user)
+        if not attachment_visible(db, attachment, incident, user):
+            raise HTTPException(403, 'The authority shared only the location and work instructions.')
     elif attachment.user_id != user.id and user.role not in OFFICIAL_ROLES:
         raise HTTPException(403, 'This photograph belongs to another user.')
     path = settings.upload_dir / attachment.storage_name
@@ -501,6 +566,26 @@ def active_team(db, team_id):
     return team
 
 
+def assignment_recipient(db, team_id, worker_id):
+    worker = db.get(User, worker_id) if worker_id is not None else None
+    if worker_id is not None:
+        if not worker or not worker.active or worker.role != 'worker' or not worker.team_id:
+            raise HTTPException(422, 'Choose an active worker who belongs to an active team.')
+        if team_id is not None and worker.team_id != team_id:
+            raise HTTPException(422, 'The selected worker belongs to a different team.')
+        team_id = worker.team_id
+    return active_team(db, team_id), worker
+
+
+def notify_assignment_workers(db, incident, assignment, title):
+    query = select(User).where(User.role == 'worker', User.active.is_(True), User.team_id == assignment.team_id)
+    if assignment.worker_id is not None:
+        query = query.where(User.id == assignment.worker_id)
+    for recipient in db.scalars(query):
+        # Always use assignment instructions, never citizen text in worker notices.
+        db.add(Notification(user_id=recipient.id, incident_id=incident.id, title=title, body=f'{incident.reference}: {assignment.notes or "Open your task for the location and work instructions."}'))
+
+
 def current_assignment(db, incident):
     if not incident.team_id:
         return None
@@ -529,28 +614,31 @@ def assign(incident_id: int, data: AssignmentCreate, db: Session = Depends(get_d
     incident = get_incident(db, incident_id, user)
     if incident.status in TERMINAL or incident.status == 'Resolved' or incident.archived or incident.duplicate_of:
         raise HTTPException(409, 'Reopen or separate this incident before assigning it.')
-    team = active_team(db, data.team_id)
+    team, worker = assignment_recipient(db, data.team_id, data.worker_id)
     for existing in db.scalars(select(Assignment).where(Assignment.incident_id == incident.id, Assignment.status.in_(['Assigned', 'Acknowledged', 'In Progress']))):
         existing.status = 'Cancelled'
-    assignment = Assignment(incident_id=incident.id, team_id=team.id, assigned_by=user.id, notes=data.notes)
+    assignment = Assignment(incident_id=incident.id, team_id=team.id, assigned_by=user.id, notes=data.notes, sharing_scope=data.sharing_scope, worker_id=worker.id if worker else None)
     db.add(assignment)
     incident.team_id = team.id
     incident.department_id = team.department_id
     incident.status = 'Assigned'
     audit(db, user, 'Team assigned', f'{team.name}. {data.notes}', incident.id)
     notify(db, incident, 'A team has been assigned', team.name)
+    notify_assignment_workers(db, incident, assignment, 'New assigned task')
     commit(db)
-    return dump(assignment)
+    return assignment_dump(db, assignment)
 
 
 @app.get('/api/assignments')
 def assignments(db: Session = Depends(get_db), user: User = Depends(current_user)):
     query = select(Assignment)
     if user.role == 'worker':
-        query = query.where(Assignment.team_id == (user.team_id or -1))
+        visible_ids = [i.id for i in db.scalars(visible_incidents(db, user))]
+        current_ids = [current_worker_assignment(db, db.get(Incident, incident_id), user).id for incident_id in visible_ids]
+        query = query.where(Assignment.id.in_(current_ids))
     elif user.role == 'citizen':
         query = query.join(Incident).where(Incident.citizen_id == user.id)
-    return [dump(a) for a in db.scalars(query.order_by(Assignment.id.desc()))]
+    return [assignment_dump(db, a) for a in db.scalars(query.order_by(Assignment.id.desc()))]
 
 
 @app.patch('/api/assignments/{assignment_id}')
@@ -563,26 +651,29 @@ def update_assignment(assignment_id: int, data: AssignmentEdit, db: Session = De
         raise HTTPException(403, 'Citizens cannot change assignments.')
     if assignment.status == 'Cancelled' or incident.status in TERMINAL or incident.archived:
         raise HTTPException(409, 'This assignment is inactive; create a new assignment after reopening.')
-    if user.role == 'worker' and (assignment.team_id != user.team_id or data.team_id is not None or data.status == 'Cancelled'):
+    if user.role == 'worker' and (assignment.team_id != user.team_id or data.team_id is not None or 'worker_id' in data.model_fields_set or data.sharing_scope is not None or data.status == 'Cancelled'):
         raise HTTPException(403, 'Workers can only progress their own assigned tasks.')
     latest = current_assignment(db, incident)
     if not latest or latest.id != assignment.id or incident.duplicate_of:
         raise HTTPException(409, 'This is a historical assignment. Use the current assignment for active work.')
     if user.role == 'worker':
         active_team(db, assignment.team_id)
-    if data.team_id is not None:
-        team = active_team(db, data.team_id)
+    if data.team_id is not None or 'worker_id' in data.model_fields_set:
+        team, worker = assignment_recipient(db, data.team_id if data.team_id is not None else (None if data.worker_id else assignment.team_id), data.worker_id)
         assignment.status = 'Cancelled'
-        assignment = Assignment(incident_id=incident.id, team_id=team.id, assigned_by=user.id, status='Assigned', notes=data.notes if data.notes is not None else assignment.notes)
+        assignment = Assignment(incident_id=incident.id, team_id=team.id, assigned_by=user.id, status='Assigned', notes=data.notes if data.notes is not None else assignment.notes, sharing_scope=data.sharing_scope or assignment.sharing_scope, worker_id=worker.id if worker else None)
         db.add(assignment)
         db.flush()
         incident.team_id = team.id
         incident.department_id = team.department_id
         incident.status = 'Assigned'
+        notify_assignment_workers(db, incident, assignment, 'Assigned task updated')
+    if data.sharing_scope is not None:
+        assignment.sharing_scope = data.sharing_scope
     if data.notes is not None:
         assignment.notes = data.notes
     if data.status:
-        allowed = {'Assigned': {'Acknowledged', 'In Progress', 'Cancelled'}, 'Acknowledged': {'In Progress', 'Cancelled'}, 'In Progress': {'Submitted', 'Cancelled'}, 'Submitted': {'In Progress', 'Cancelled'}}
+        allowed = {'Assigned': {'Acknowledged', 'In Progress', 'Submitted', 'Cancelled'}, 'Acknowledged': {'In Progress', 'Submitted', 'Cancelled'}, 'In Progress': {'Submitted', 'Cancelled'}, 'Submitted': {'In Progress', 'Cancelled'}}
         if data.status != assignment.status and data.status not in allowed.get(assignment.status, set()):
             raise HTTPException(409, f'Cannot change assignment from {assignment.status} to {data.status}.')
         if user.role == 'worker' and assignment.status == 'Submitted':
@@ -590,12 +681,12 @@ def update_assignment(assignment_id: int, data: AssignmentEdit, db: Session = De
         if assignment.status == 'Submitted' and data.status == 'In Progress':
             audit(db, user, 'Completion corrections requested', data.notes or 'Authority requested another completion review.', incident.id)
         if data.status == 'Submitted':
-            if len(assignment.notes.strip()) < 10:
-                raise HTTPException(422, 'Completion requires notes of at least 10 characters.')
             evidence = completion_evidence(db, incident, assignment)
             if not evidence:
                 raise HTTPException(422, 'Upload a completion photograph before submitting work.')
             incident.status = 'Resolved'
+            for supervisor in db.scalars(select(User).where(User.role.in_(list(OFFICIAL_ROLES)), User.active.is_(True))):
+                db.add(Notification(user_id=supervisor.id, incident_id=incident.id, title='Completion ready for review', body=f'{incident.reference}: a worker submitted completion evidence. Review the photograph and close or request corrections.'))
         elif data.status == 'In Progress':
             incident.status = 'In Progress'
         elif data.status == 'Cancelled':
@@ -606,7 +697,18 @@ def update_assignment(assignment_id: int, data: AssignmentEdit, db: Session = De
     notify(db, incident, f'Work update: {incident.status}', assignment.notes)
     commit(db)
     recalculate(db)
-    return dump(assignment)
+    return assignment_dump(db, assignment)
+
+
+@app.get('/api/workers')
+def workers(db: Session = Depends(get_db), user: User = Depends(official)):
+    rows = []
+    for worker in db.scalars(select(User).where(User.role == 'worker', User.active.is_(True)).order_by(User.name)):
+        team = db.get(Team, worker.team_id) if worker.team_id else None
+        department = db.get(Department, team.department_id) if team else None
+        if team and team.active and department and department.active:
+            rows.append({'id': worker.id, 'name': worker.name, 'team_id': team.id, 'team_name': team.name, 'department_id': department.id, 'department_name': department.name})
+    return rows
 
 
 @app.get('/api/departments')
@@ -764,7 +866,23 @@ def delete_user(entity_id: int, db: Session = Depends(get_db), user: User = Depe
 
 @app.get('/api/notifications')
 def notifications(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    return [dump(r) for r in db.scalars(select(Notification).where(Notification.user_id == user.id).order_by(Notification.created_at.desc()))]
+    rows = []
+    for notification in db.scalars(select(Notification).where(Notification.user_id == user.id).order_by(Notification.created_at.desc())):
+        row = notification_dump(db, notification, user)
+        if row:
+            rows.append(row)
+    return rows
+
+
+def notification_dump(db, notification, user):
+    row = dump(notification)
+    if user.role == 'worker' and notification.incident_id:
+        incident = db.get(Incident, notification.incident_id)
+        if not incident or not current_worker_assignment(db, incident, user):
+            return None
+        if location_only(db, incident, user):
+            row.update(title='Assigned task update', body=f'{incident.reference}: open your assigned task for the location and work instructions.')
+    return row
 
 
 @app.patch('/api/notifications/{notification_id}')
@@ -776,7 +894,7 @@ def edit_notification(notification_id: int, data: NotificationEdit, db: Session 
         raise HTTPException(403, 'This notification belongs to another user.')
     item.read = data.read
     commit(db)
-    return dump(item)
+    return notification_dump(db, item, user) or {'id': item.id, 'read': item.read}
 
 
 @app.get('/api/audit')
@@ -795,7 +913,8 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
     items = db.scalars(visible_incidents(db, user).where(Incident.archived.is_(False))).all()
     ids = [i.id for i in items]
     recent = db.scalars(select(AuditLog).where(AuditLog.incident_id.in_(ids)).order_by(AuditLog.created_at.desc()).limit(8)).all() if ids else []
-    return {'total': len(items), 'new': sum(i.status in {'Submitted', 'Under Analysis', 'Pending Review'} for i in items), 'unresolved': sum(i.status not in {'Resolved', 'Closed', 'Rejected', 'Withdrawn'} for i in items), 'critical': sum(i.severity in {'High', 'Critical'} and i.status not in TERMINAL | {'Resolved'} for i in items), 'awaiting_review': sum(i.status in {'Pending Review', 'Resolved', 'Reopened'} for i in items), 'active': sum(i.status in {'Assigned', 'In Progress'} for i in items), 'resolved': sum(i.status in {'Resolved', 'Closed'} for i in items), 'recent_activity': [dump(i) for i in recent]}
+    safe_activity = [dump(entry) for entry in recent if user.role != 'worker' or not location_only(db, db.get(Incident, entry.incident_id), user)]
+    return {'total': len(items), 'new': sum(i.status in {'Submitted', 'Under Analysis', 'Pending Review'} for i in items), 'unresolved': sum(i.status not in {'Resolved', 'Closed', 'Rejected', 'Withdrawn'} for i in items), 'critical': sum(i.severity in {'High', 'Critical'} and i.status not in TERMINAL | {'Resolved'} and not location_only(db, i, user) for i in items), 'awaiting_review': sum(i.status in {'Pending Review', 'Resolved', 'Reopened'} for i in items), 'active': sum(i.status in {'Assigned', 'In Progress'} for i in items), 'resolved': sum(i.status in {'Resolved', 'Closed'} for i in items), 'recent_activity': safe_activity}
 
 
 def risk_dump(db, assessment):

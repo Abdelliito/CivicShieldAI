@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
-import { Activity, ArrowRight, Clock3, FileText, MapPin, Network } from "lucide-react";
+import { Activity, ArrowRight, Camera, Clock3, FileText, MapPin, Network, UploadCloud } from "lucide-react";
 import { useApi, relative, date } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import type { Incident, Json, Risk } from "../lib/types";
-import { Badge, Empty, ErrorState, Loading } from "../components/UI";
+import { Badge, Button, Empty, ErrorState, Loading } from "../components/UI";
+import { CitizenConditionsSummary } from "./CitizenWeather";
 import { CivicMap } from "../components/Map";
 import { IncidentTable } from "../components/IncidentTable";
 
@@ -13,7 +14,7 @@ const AGENTS = [
   { name: "Response Coordinator Agent", icon: Network, method: "Rule-based planning" },
 ];
 
-export function Dashboard({ onOpen }: { onOpen: (id: number) => void }) {
+export function Dashboard({ onOpen, onReport }: { onOpen: (id: number) => void; onReport: (mode?: "upload" | "camera") => void }) {
   const { user } = useAuth();
   const operator = user?.role === "authority" || user?.role === "admin";
   const incidents = useApi<Incident[]>("/incidents");
@@ -30,6 +31,16 @@ export function Dashboard({ onOpen }: { onOpen: (id: number) => void }) {
   }
 
   const data = incidents.data || [];
+  if (user?.role === "citizen") return <div className="citizen-home">
+    <section className="panel citizen-report-start">
+      <h2>See a problem? Start with a photo.</h2>
+      <p>Add a photo, check the suggestion, and follow the repair.</p>
+      <div className="inline-actions"><Button onClick={() => onReport("upload")}><UploadCloud size={20} />Upload a photo</Button><Button className="button-secondary" onClick={() => onReport("camera")}><Camera size={20} />Take photo</Button></div>
+      <ol className="citizen-report-steps">{[["Add a photo", "Show the issue"], ["Confirm location", "Check the problem’s position"], ["Send report", "Get a reference number"]].map(([heading, description], index) => <li key={heading}><span>{index + 1}</span><div><strong>{heading}</strong><p>{description}</p></div></li>)}</ol>
+    </section>
+    <CitizenConditionsSummary />
+    <section className="panel recent-panel"><div className="panel-heading"><h2>Latest reports</h2><Link to="/incidents">View all <ArrowRight size={14} /></Link></div><IncidentTable incidents={data.slice(0, 5)} onOpen={onOpen} compact /></section>
+  </div>;
   const stats = dashboard.data || {};
   const priority = [...data]
     .filter((incident) => !["Closed", "Resolved", "Withdrawn", "Rejected"].includes(incident.status))

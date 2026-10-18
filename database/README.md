@@ -13,6 +13,18 @@ psql "$env:POSTGRES_URL" -v ON_ERROR_STOP=1 -c "SET civicshield.demo_mode = 'on'
 ```
 
 Alternatively, the FastAPI startup creates the same schema from SQLAlchemy.
+Startup then runs `003_photo_first_workflow.sql` inside a transaction, protected
+by a PostgreSQL advisory lock. Existing attachments receive empty analysis JSON;
+existing assignments keep full-report access, and no worker is selected directly.
+The upgrade adds only `attachments.analysis`, `assignments.sharing_scope` and
+`assignments.worker_id` plus the sharing-scope constraint. It never removes rows,
+rewrites reports, or replaces the database. It is safe to run repeatedly.
+Operators using SQL directly should apply the same upgrade after `001_schema.sql`:
+
+```powershell
+psql "$env:POSTGRES_URL" -v ON_ERROR_STOP=1 -1 -f database/003_photo_first_workflow.sql
+```
+
 Set `DEMO_MODE=true` explicitly in a local `.env` to seed the same demonstration
 through Python. Leave it false for production and provision an administrator with
 `python -m app.create_admin` from `backend`. No production accounts are created

@@ -12,6 +12,7 @@ import {
 } from "react";
 import { attachmentBlob } from "../lib/api";
 import type { Attachment } from "../lib/types";
+import { statusLabel } from "../lib/types";
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="brand">
@@ -30,9 +31,9 @@ export function Brand({ compact = false }: { compact?: boolean }) {
 export function Badge({ children }: { children: ReactNode }) {
   const c = String(children).toLowerCase().replaceAll(" ", "-");
   return (
-    <span className={`badge badge-${c}`}>
+    <span className={`badge badge-${c}`} title={String(children)}>
       <i />
-      {children || "Pending"}
+      {typeof children === "string" ? statusLabel(children) : children || "Pending"}
     </span>
   );
 }
