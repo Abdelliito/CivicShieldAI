@@ -6,13 +6,13 @@ CivicShield uses deterministic, inspectable decision tools in the local demonstr
 
 The Civic Intelligence Agent reads report text, evaluates supported hazard phrases, adjusts review priority from reported exposure and consequences, finds nearby recent candidates, and recommends a department. The fallback's `confidence` is null because its rules have no calibrated probability. Every result requires human review.
 
-Photographs are retained as evidence. Without a server-side `OPENAI_API_KEY`, they are **not analyzed**. The API response explicitly includes `image_analyzed=false`, `method=deterministic_text`, and visible uncertainty text. Nothing in this fallback measures image contents.
+Photographs are retained as evidence. Without a server-side Gemini key (`GEMINI_API_KEY` or `GOOGLE_API_KEY`), they are **not analyzed**. The API response explicitly includes `image_analyzed=false`, `method=deterministic_text`, and visible uncertainty text. Nothing in this fallback measures image contents.
 
-When configured, the integration sends the stored photo as a Base64 image input to the OpenAI Responses API, using `VISION_MODEL` when set or `OPENAI_MODEL` otherwise. Select a model that supports image inputs and structured output in your account. The output is validated with the `HazardAnalysis` Pydantic schema before use. Provider errors or invalid outputs trigger up to two attempts, then a logged text fallback. Requests use `store=false`. Credentials stay on the backend. Provider output cannot call tools or write arbitrary database records.
+When configured, the default Gemini integration sends the stored photo as inline Base64 image data to the Gemini `generateContent` API, using `VISION_MODEL` when set or `GEMINI_MODEL` otherwise. Select a model that supports image inputs and structured output in your account. The output is validated with the `HazardAnalysis` Pydantic schema before use. Provider errors or invalid outputs trigger the text fallback. Credentials stay on the backend. Provider output cannot call tools or write arbitrary database records.
 
 The real network path was checked against official documentation; the request and validation behavior are covered using a controlled mock. **Live vision inference was not tested because no API credential was configured.** Configuring a credential sends incident evidence to the provider and incurs that provider's charges.
 
-Reference: [OpenAI images and vision](https://developers.openai.com/api/docs/guides/images-vision).
+Reference: [Gemini image understanding](https://ai.google.dev/gemini-api/docs/vision).
 
 ## Duplicate candidates
 

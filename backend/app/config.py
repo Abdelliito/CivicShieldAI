@@ -12,9 +12,9 @@ class Settings:
     database_url = os.getenv('DATABASE_URL', 'postgresql+psycopg2://civicshield:civicshield@127.0.0.1:5432/civicshield')
     jwt_secret = os.getenv('JWT_SECRET', '')
     demo_mode = os.getenv('DEMO_MODE', 'false').lower() == 'true'
-    openai_api_key = os.getenv('OPENAI_API_KEY', '')
-    openai_model = os.getenv('OPENAI_MODEL', 'gpt-4.1-mini')
-    vision_provider = os.getenv('VISION_PROVIDER', 'openai')
+    gemini_api_key = os.getenv('GEMINI_API_KEY', os.getenv('GOOGLE_API_KEY', ''))
+    gemini_model = os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')
+    vision_provider = os.getenv('VISION_PROVIDER', 'gemini')
     upload_dir = Path(os.getenv('UPLOAD_DIR', str(ROOT / 'backend' / 'uploads')))
     cors_origins = [v.strip() for v in os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',')]
     weather_refresh_minutes = int(os.getenv('WEATHER_REFRESH_MINUTES', '30'))

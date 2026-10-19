@@ -26,7 +26,7 @@ require paid AI credentials.
 
 | Setting | Purpose |
 | --- | --- |
-| `VISION_PROVIDER` | `openai`, `gemini`, `anthropic`, `huggingface`, `openai_compatible` or `ollama`. Default: `openai`. |
+| `VISION_PROVIDER` | `gemini`, `openai`, `anthropic`, `huggingface`, `openai_compatible` or `ollama`. Default: `gemini`. |
 | `VISION_MODEL` | Exact accessible image-capable model identifier for the chosen provider. |
 | `VISION_API_KEY` | Private key for the primary provider, kept server-side. |
 | `VISION_ENDPOINT` | Optional **complete request URL**. It is not a base URL; use the provider’s final endpoint. |
@@ -47,11 +47,11 @@ Provider-specific aliases are accepted when the generic setting is absent:
 | OpenAI-compatible VLM chat | `COMPATIBLE_API_KEY` | `COMPATIBLE_MODEL` | `COMPATIBLE_ENDPOINT`; no public default |
 | Ollama generate | `OLLAMA_API_KEY` if required | `OLLAMA_MODEL` | `OLLAMA_ENDPOINT` / `http://127.0.0.1:11434/api/generate` |
 
-The existing `OPENAI_API_KEY` and `OPENAI_MODEL` configuration remains supported.
-The historical OpenAI default is retained for compatibility; explicitly select a
-currently available model that your account can use. Model availability and image
-support depend on the provider/account. The application does not silently replace
-a selected model. Gemini, Anthropic, HF and local models need an explicit model.
+OpenAI configuration remains supported when `VISION_PROVIDER=openai` is selected.
+Gemini is the default provider. Explicitly select a currently available model
+that your account can use. Model availability and image support depend on the
+provider/account. The application does not silently replace a selected model.
+Anthropic, HF and local models need an explicit model.
 
 ### OpenAI example
 

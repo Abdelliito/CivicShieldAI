@@ -57,7 +57,7 @@ def _configuration(provider: str, *, fallback: bool = False) -> ProviderConfig:
     key_alias = ('GOOGLE_API_KEY',) if provider == 'gemini' else ()
     # A generic primary key is NEVER reused for a different fallback provider.
     key = _env(prefix + 'API_KEY', key_name, *key_alias)
-    model = _env(prefix + 'MODEL', model_name, default='gpt-4.1-mini' if provider == 'openai' else '')
+    model = _env(prefix + 'MODEL', model_name, default='gpt-4.1-mini' if provider == 'openai' else 'gemini-3.8-flash' if provider == 'gemini' else '')
     endpoint = _env(prefix + 'ENDPOINT', endpoint_name, default=default_endpoint)
     endpoint = endpoint.replace('{model}', quote(model.removeprefix('models/'), safe=''))
     local_compatible = provider == 'openai_compatible' and urlsplit(endpoint).hostname in {'localhost', '127.0.0.1', '::1', 'host.docker.internal'}
@@ -65,7 +65,7 @@ def _configuration(provider: str, *, fallback: bool = False) -> ProviderConfig:
 
 
 def configurations() -> list[ProviderConfig]:
-    configs = [_configuration(_env('VISION_PROVIDER', default='openai'))]
+    configs = [_configuration(_env('VISION_PROVIDER', default='gemini'))]
     fallback = _env('VISION_FALLBACK_PROVIDER')
     if fallback and fallback.lower() not in {'none', 'disabled'}:
         configs.append(_configuration(fallback, fallback=True))

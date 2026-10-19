@@ -86,6 +86,7 @@ def test_distinct_authenticated_image_protocols(provider, photograph, monkeypatc
 
 
 def test_no_key_is_actionable_and_never_calls_provider(photograph, monkeypatch):
+    monkeypatch.setenv('VISION_PROVIDER', 'gemini')
     monkeypatch.setattr(vision.httpx, 'post', lambda *a, **k: pytest.fail('No key must not send the image'))
     result = vision.analyze_image_file(photograph)
     assert result['status'] == 'unconfigured' and not result['image_analyzed']
@@ -101,6 +102,7 @@ def test_no_key_is_actionable_and_never_calls_provider(photograph, monkeypatch):
     (500, {}, 'provider_unavailable'), (302, {}, 'redirect_rejected'),
 ])
 def test_error_codes_are_specific_sanitized_and_not_success(status, error, expected, photograph, monkeypatch):
+    monkeypatch.setenv('VISION_PROVIDER', 'openai')
     monkeypatch.setenv('OPENAI_API_KEY', 'secret-never-display')
     response_body = {'error': {**error, 'message': 'secret-never-display image-data private record'}}
     with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(status, json=response_body, headers={'Location': 'https://attacker.example'}))) as client:
@@ -112,6 +114,7 @@ def test_error_codes_are_specific_sanitized_and_not_success(status, error, expec
 
 @pytest.mark.parametrize('exception,expected', [(httpx.ConnectError('secret endpoint'), 'connection'), (httpx.ReadTimeout('secret request'), 'timeout')])
 def test_network_errors_are_safe(exception, expected, photograph, monkeypatch):
+    monkeypatch.setenv('VISION_PROVIDER', 'openai')
     monkeypatch.setenv('OPENAI_API_KEY', 'secret')
     def handler(request):
         raise exception
@@ -152,6 +155,7 @@ def test_missing_fallback_key_never_reuses_primary_secret(photograph, monkeypatc
 
 @pytest.mark.parametrize('changes', [{'image_analyzed': False, 'method': 'deterministic_text'}, {'category': 'Earthquake'}, {'assign_team_id': 4}, {'evidence': []}, {'confidence': .9}, {'recommended_department': 'Fake Department'}])
 def test_invalid_or_false_provider_results_never_show_detection(changes, photograph, monkeypatch):
+    monkeypatch.setenv('VISION_PROVIDER', 'openai')
     monkeypatch.setenv('OPENAI_API_KEY', 'secret')
     with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=response('openai', analysis(**changes))))) as client:
         result = vision.analyze_image_file(photograph, client=client)
@@ -160,6 +164,7 @@ def test_invalid_or_false_provider_results_never_show_detection(changes, photogr
 
 @pytest.mark.parametrize('relevance', ['irrelevant', 'uncertain'])
 def test_irrelevant_or_ambiguous_photo_cannot_claim_civic_detection(relevance, photograph, monkeypatch):
+    monkeypatch.setenv('VISION_PROVIDER', 'openai')
     monkeypatch.setenv('OPENAI_API_KEY', 'secret')
     with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=response('openai', analysis(relevance=relevance))))) as client:
         result = vision.analyze_image_file(photograph, description='Huge pothole by school', client=client)
@@ -184,6 +189,7 @@ def test_truncated_or_refused_responses_are_not_success(provider, bad_body, phot
 
 
 def test_invalid_image_is_rejected_before_external_request(tmp_path, monkeypatch):
+    monkeypatch.setenv('VISION_PROVIDER', 'gemini')
     monkeypatch.setenv('OPENAI_API_KEY', 'secret')
     invalid = tmp_path / 'invalid.jpg'
     invalid.write_bytes(b'not an image')
@@ -204,6 +210,7 @@ def test_key_aliases_models_and_safe_status(monkeypatch):
 
 
 def test_legacy_openai_configuration_and_model_precedence(monkeypatch):
+    monkeypatch.setenv('VISION_PROVIDER', 'openai')
     monkeypatch.setenv('OPENAI_API_KEY', 'secret')
     monkeypatch.setenv('OPENAI_MODEL', 'retain-exact-user-model')
     assert vision.configurations()[0].model == 'retain-exact-user-model'
@@ -215,22 +222,22 @@ def test_project_root_dotenv_with_bom_loads_and_shell_wins(tmp_path, monkeypatch
     from app import config
     # Track both names so dotenv's direct os.environ writes cannot leak into
     # subsequent tests after monkeypatch restores this fixture's environment.
-    for name in ('OPENAI_API_KEY', 'OPENAI_MODEL'):
+    for name in ('GEMINI_API_KEY', 'GEMINI_MODEL'):
         monkeypatch.setenv(name, '')
         monkeypatch.delenv(name)
     nested = tmp_path / 'backend' / 'app'
     nested.mkdir(parents=True)
     copied = nested / 'config.py'
     copied.write_text(Path(config.__file__).read_text(encoding='utf-8'), encoding='utf-8')
-    (tmp_path / '.env').write_text('OPENAI_API_KEY=file-only-test-key\nOPENAI_MODEL=file-model\n', encoding='utf-8-sig')
+    (tmp_path / '.env').write_text('GEMINI_API_KEY=file-only-test-key\nGEMINI_MODEL=file-model\n', encoding='utf-8-sig')
     spec = importlib.util.spec_from_file_location('vision_config_test', copied)
     loaded = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(loaded)
-    assert loaded.settings.openai_api_key == 'file-only-test-key'
-    assert loaded.settings.openai_model == 'file-model'
-    monkeypatch.setenv('OPENAI_API_KEY', 'shell-only-test-key')
+    assert loaded.settings.gemini_api_key == 'file-only-test-key'
+    assert loaded.settings.gemini_model == 'file-model'
+    monkeypatch.setenv('GEMINI_API_KEY', 'shell-only-test-key')
     spec.loader.exec_module(loaded)
-    assert loaded.settings.openai_api_key == 'shell-only-test-key'
+    assert loaded.settings.gemini_api_key == 'shell-only-test-key'
 
 
 def test_insecure_or_credential_embedded_endpoints_do_not_send_keys(photograph, monkeypatch):
@@ -244,10 +251,11 @@ def test_insecure_or_credential_embedded_endpoints_do_not_send_keys(photograph, 
 
 
 def test_failure_preview_reused_only_for_same_photo_and_configuration(photograph, monkeypatch):
+    monkeypatch.setenv('VISION_PROVIDER', 'gemini')
     payload = vision.analyze_image_file(photograph)
     assert vision.reusable_analysis(payload, photograph) == payload
-    monkeypatch.setenv('OPENAI_API_KEY', 'new-secret')
+    monkeypatch.setenv('GEMINI_API_KEY', 'new-secret')
     assert vision.reusable_analysis(payload, photograph) is None
-    monkeypatch.delenv('OPENAI_API_KEY')
+    monkeypatch.delenv('GEMINI_API_KEY')
     photograph.write_bytes(b'changed')
     assert vision.reusable_analysis(payload, photograph) is None
