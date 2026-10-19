@@ -406,10 +406,9 @@ Additional screenshots and the design process are in [`docs/redesign/`](docs/red
 
 | Member | Role | Contributions |
 |---|---|---|
-| **Your Name** | e.g. Full-stack developer | e.g. FastAPI backend, database schema, authentication, deployment |
-| **Member 2** | e.g. Frontend developer | e.g. React interface, map, responsive design |
-| **Member 3** | e.g. AI / ML engineer | e.g. vision provider integration, risk model, agent workflow |
-| **Member 4** | e.g. QA and documentation | e.g. test suites, demo guide, documentation |
+| **Abdullah Salman** | e.g. Full-stack developer | e.g. FastAPI backend, database schema, authentication, deployment |
+| **Saad Zafar** | e.g. AI / ML engineer | e.g. vision provider integration, risk model, agent workflow |
+
 
 ---
 
