@@ -404,10 +404,10 @@ Additional screenshots and the design process are in [`docs/redesign/`](docs/red
 
 > Replace the placeholders below with your real team details before submitting.
 
-| Member | Role | Contributions |
-|---|---|---|
-| **Abdullah Salman** | Full-stack developer | e.g. FastAPI backend, database schema, authentication, deployment |
-| **Saad Zafar** | AI / ML engineer | e.g. vision provider integration, risk model, agent workflow |
+| Member | Role |
+|---|---|
+| **Abdullah Salman** | Full-stack developer 
+| **Saad Zafar** | AI / ML engineer | 
 
 
 ---
